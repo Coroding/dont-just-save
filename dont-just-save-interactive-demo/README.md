@@ -22,33 +22,26 @@ python -m http.server 8080
 http://localhost:8080
 ```
 
-## Vercel 部署
+## GitHub Pages 部署
 
-通过 Vercel 导入 GitHub 仓库时，请将 Root Directory 设置为：
+本项目通过 GitHub Actions 部署 `dont-just-save-interactive-demo/` 子目录到 GitHub Pages。
 
-```text
-dont-just-save-interactive-demo
-```
+部署步骤：
 
-该目录根部已经包含 `index.html`，所有资源均使用相对路径引用，不依赖 localhost、远程 CDN 或外部图片资源。
+1. 将代码 push 到 GitHub 的 main 分支。
+2. 打开 GitHub 仓库。
+3. 进入 Settings -> Pages。
+4. 在 Build and deployment 中，将 Source 设置为 GitHub Actions。
+5. 进入 Actions 页面，查看 `Deploy interactive demo to GitHub Pages` workflow 是否成功。
+6. 部署成功后，在 workflow summary 或 Settings -> Pages 中查看 Pages 链接。
 
-## GitHub + Vercel 自动部署
+注意：
 
-1. 将仓库推送到 GitHub。
-2. 在 Vercel 新建项目并导入该仓库。
-3. Root Directory 填写 `dont-just-save-interactive-demo`。
-4. Framework Preset 选择 Other 或 Static。
-5. Build Command 留空。
-6. Output Directory 留空或使用默认值。
-7. 之后推送到 GitHub 默认分支即可触发自动部署。
-
-## Vercel CLI 部署
-
-如果使用 Vercel CLI，可以进入本目录后运行：
-
-```bash
-vercel --prod
-```
+- 不需要 npm install。
+- 不需要 React build。
+- 不需要 Vercel。
+- 不要部署整个 Android 工程。
+- 发布内容来自 `dont-just-save-interactive-demo/`。
 
 ## 部署前检查
 
