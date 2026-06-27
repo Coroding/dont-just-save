@@ -1,26 +1,4 @@
 {
   "cleanUrls": true,
-  "trailingSlash": false,
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/dont-just-save-interactive-demo/index.html"
-    },
-    {
-      "source": "/assets/:path*",
-      "destination": "/dont-just-save-interactive-demo/assets/:path*"
-    },
-    {
-      "source": "/styles.css",
-      "destination": "/dont-just-save-interactive-demo/styles.css"
-    },
-    {
-      "source": "/app.js",
-      "destination": "/dont-just-save-interactive-demo/app.js"
-    },
-    {
-      "source": "/:path*",
-      "destination": "/dont-just-save-interactive-demo/:path*"
-    }
-  ]
+  "trailingSlash": false
 }
