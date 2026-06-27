@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>别只收藏 - 产品经理作品集展示页</title>
+    <meta
+      name="description"
+      content="别只收藏是面向内容创作者的 AI 选题与素材管理工具，把刷到的内容转成可创作的视频任务。"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="portfolio-hero" id="top">
+      <nav class="top-nav" aria-label="作品集导航">
+        <span class="brand-mark">别只收藏</span>
+        <div class="nav-links">
+          <a href="#product-video">产品视频</a>
+          <a href="#demo">交互 Demo</a>
+          <a href="#research">用户调研</a>
+          <a href="#product-loop">产品闭环</a>
+        </div>
+      </nav>
+
+      <section class="hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">Portfolio Product Demo</p>
+          <h1>别只收藏</h1>
+          <p class="hero-subtitle">把刷到的内容，变成可创作的视频任务</p>
+          <p class="hero-positioning">
+            面向内容创作者的 AI 选题与素材管理工具。它不是普通收藏夹，而是创作者前置工作流产品。
+          </p>
+          <div class="hero-actions">
+            <a class="primary-link" href="#demo">开始交互演示</a>
+            <a class="secondary-link" href="#research">查看用户调研</a>
+            <a class="secondary-link" href="#product-loop">查看产品闭环</a>
+          </div>
+        </div>
+
+        <div class="hero-panel" aria-label="产品闭环摘要">
+          <div class="hero-loop-card">
+            <span>刷到内容</span>
+            <strong>补一句创作启发</strong>
+            <span>AI 识别用途</span>
+            <span>生成视频创作任务</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="video-section" id="product-video" aria-label="产品视频">
+        <div class="section-kicker">Product Video</div>
+        <video controls playsinline poster="assets/video-poster.png" preload="metadata">
+          <source src="assets/demo-video.mp4" type="video/mp4" />
+          当前浏览器不支持视频播放。
+        </video>
+        <p class="video-caption">40 秒快速理解：如何把刷到的内容转成视频创作任务</p>
+      </section>
+    </header>
+
+    <main>
+      <section class="demo-section" id="demo">
+        <div class="section-heading">
+          <p class="eyebrow">Interactive Prototype</p>
+          <h2>可交互手机 Demo</h2>
+          <p>
+            在手机原型里完成“记录灵感 → AI 识别 → 保存 → 收集箱 → 生成创作任务 → 复盘”的创作者前链路。
+          </p>
+        </div>
+
+        <div class="phone-stage">
+          <div class="phone-shell" aria-label="别只收藏手机交互原型">
+            <div class="phone-speaker"></div>
+            <div id="app" class="phone-screen" role="application"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="portfolio-notes" aria-label="作品集说明">
+        <section class="portfolio-block research-block" id="research" aria-labelledby="research-title">
+          <div class="block-heading">
+            <span class="note-index">01</span>
+            <h2 id="research-title">用户调研：为什么不是再做一个收藏夹？</h2>
+            <p>基于 `docs/用户调研结果.docx` 整理。样本为 7 人小样本访谈/问卷材料，适合作为需求验证证据，不作为大规模统计结论。</p>
+          </div>
+          <div class="research-summary">
+            <article>
+              <strong>调研目的</strong>
+              <p>验证创作者收藏后是否能转化为视频任务，以及是否需要 AI 识别用途、标签和下一步行动。</p>
+            </article>
+            <article>
+              <strong>样本概况</strong>
+              <p>覆盖学习/工具、旅行酒店、舞蹈、运营求职内容，也包含潜在创作者。</p>
+            </article>
+          </div>
+          <div class="finding-grid">
+            <article class="finding-card">
+              <div class="card-icon">↗</div>
+              <span>发现 1</span>
+              <h3>收藏不是问题，转化才是问题</h3>
+              <p><strong>用户行为：</strong>7 位受访者均有收藏行为。</p>
+              <p><strong>暴露问题：</strong>过几天只剩一个链接，很难想起当时想参考哪一点。</p>
+              <p><strong>产品启发：</strong>保存后立即生成创作用途、标签和下一步行动。</p>
+            </article>
+            <article class="finding-card">
+              <div class="card-icon">◎</div>
+              <span>发现 2</span>
+              <h3>创作者收藏的是可复用结构</h3>
+              <p><strong>用户行为：</strong>收藏选题、标题结构、封面形式、脚本结构和表达方式。</p>
+              <p><strong>暴露问题：</strong>只按链接/图片/文字管理，承接不了创作语义。</p>
+              <p><strong>产品启发：</strong>按选题、标题、封面、脚本、素材、表达方式分类。</p>
+            </article>
+            <article class="finding-card">
+              <div class="card-icon">✓</div>
+              <span>发现 3</span>
+              <h3>任务要被拆成低压力下一步</h3>
+              <p><strong>用户行为：</strong>停更和新手用户收藏很多，但不知道从哪里开始。</p>
+              <p><strong>暴露问题：</strong>从案例到脚本池之间缺少结构化工具。</p>
+              <p><strong>产品启发：</strong>输出 15 分钟内可执行的下一步行动。</p>
+            </article>
+            <article class="finding-card">
+              <div class="card-icon">✦</div>
+              <span>发现 4</span>
+              <h3>视频素材需要补一句创作意图</h3>
+              <p><strong>用户行为：</strong>用户会收藏动作、运镜、酒店卖点、求职案例等视频化素材。</p>
+              <p><strong>暴露问题：</strong>单条内容不能自动表达具体参考点。</p>
+              <p><strong>产品启发：</strong>P0 让用户补一句启发，再由 AI mock 生成建议。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="portfolio-block" id="needs" aria-labelledby="needs-title">
+          <div class="block-heading">
+            <span class="note-index">02</span>
+            <h2 id="needs-title">需求分析：从收藏行为到创作任务</h2>
+          </div>
+          <div class="need-layers" aria-label="三层需求分析">
+            <article>
+              <span>01 快速采集</span>
+              <div class="bubble-row"><b>链接</b><b>截图</b><b>图片</b><b>文字</b></div>
+              <p>降低记录成本，让灵感先进入系统。</p>
+            </article>
+            <article>
+              <span>02 语义理解</span>
+              <div class="bubble-row"><b>选题</b><b>标题</b><b>封面</b><b>脚本</b><b>素材</b><b>表达方式</b></div>
+              <p>把“内容类型”转成“创作用途”。</p>
+            </article>
+            <article>
+              <span>03 任务转化</span>
+              <div class="bubble-row"><b>视频选题</b><b>脚本大纲</b><b>素材清单</b><b>下一步行动</b></div>
+              <p>把收藏推进到可以开工的任务卡。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="portfolio-block competitor-block" id="competitors" aria-labelledby="competitor-title">
+          <div class="block-heading">
+            <span class="note-index">03</span>
+            <h2 id="competitor-title">竞品矩阵：普通收藏工具解决不了创作转化</h2>
+            <p>矩阵表达产品定位差异，不贬低竞品；“强/中/弱/不适用”用于说明适配度。</p>
+          </div>
+          <div class="matrix-scroll">
+            <table class="competitor-table">
+              <thead>
+                <tr>
+                  <th>类别</th>
+                  <th>跨平台采集</th>
+                  <th>创作用途识别</th>
+                  <th>任务转化</th>
+                  <th>移动端低摩擦</th>
+                  <th>视频创作前链路</th>
+                  <th>AI 下一步行动</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><th>平台收藏夹</th><td>弱</td><td>弱</td><td>弱</td><td>强</td><td>弱</td><td>不适用</td></tr>
+                <tr><th><span class="table-bubbles"><b>Notion</b><b>飞书</b></span></th><td>中</td><td>弱</td><td>中</td><td>中</td><td>中</td><td>弱</td></tr>
+                <tr><th><span class="table-bubbles"><b>Milanote</b><b>Figma</b><b>花瓣</b></span></th><td>中</td><td>中</td><td>弱</td><td>弱</td><td>中</td><td>弱</td></tr>
+                <tr><th><span class="table-bubbles"><b>ChatGPT</b><b>通用 AI</b></span></th><td>弱</td><td>强</td><td>中</td><td>弱</td><td>中</td><td>中</td></tr>
+                <tr><th><span class="table-bubbles"><b>剪映</b><b>CapCut</b><b>AI 视频工具</b></span></th><td>弱</td><td>中</td><td>中</td><td>中</td><td>中</td><td>中</td></tr>
+                <tr class="highlight-row"><th>别只收藏</th><td>中</td><td>强</td><td>强</td><td>强</td><td>强</td><td>强</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="portfolio-block loop-block" id="product-loop" aria-labelledby="loop-title">
+          <div class="block-heading">
+            <span class="note-index">04</span>
+            <h2 id="loop-title">产品闭环：把收藏内容转成创作任务</h2>
+          </div>
+          <div class="loop-flow detailed-flow" aria-label="产品闭环流程">
+            <span>保存内容<small>链接、截图、文字先收进来</small></span>
+            <i></i>
+            <span>补一句创作启发<small>保留当下参考意图</small></span>
+            <i></i>
+            <span>AI 识别创作用途<small>判断选题、标题、封面等用途</small></span>
+            <i></i>
+            <span>生成任务卡<small>输出大纲、素材和下一步</small></span>
+            <i></i>
+            <span>进入任务池与复盘<small>持续推进或暂存筛选</small></span>
+          </div>
+        </section>
+
+        <section class="portfolio-block design-output-block" id="outputs" aria-labelledby="design-output-title">
+          <div class="block-heading">
+            <span class="note-index">05</span>
+            <h2 id="design-output-title">产品设计产出</h2>
+            <p>用 HTML/CSS 直接绘制 4 张图形卡，点击可放大查看。</p>
+          </div>
+          <div class="output-grid">
+            <button class="output-card" type="button" data-output-card>
+              <div class="output-visual flow-diagram">
+                <span>收藏内容</span><i></i><span>补充启发</span><i></i><span>AI 识别用途</span><i></i><span>生成任务卡</span><i></i><span>进入创作流程</span>
+              </div>
+              <h3>核心流程图</h3>
+              <p>我负责梳理从收藏到创作任务的转化链路。</p>
+            </button>
+            <button class="output-card" type="button" data-output-card>
+              <div class="output-visual structure-diagram">
+                <span>快速记录</span><span>灵感收集箱</span><span>AI 识别</span><span>创作任务池</span><span>复盘整理</span>
+              </div>
+              <h3>功能结构图</h3>
+              <p>我负责定义 P0 范围，控制功能聚焦在前链路验证。</p>
+            </button>
+            <button class="output-card" type="button" data-output-card>
+              <div class="output-visual prototype-diagram">
+                <span>首页</span><span>记录页</span><span>收集箱</span><span>任务池</span><span>复盘页</span>
+              </div>
+              <h3>页面原型图</h3>
+              <p>我负责设计首页、记录页、收集箱、任务池和复盘页的信息结构。</p>
+            </button>
+            <button class="output-card" type="button" data-output-card>
+              <div class="output-visual ai-diagram">
+                <span>输入：链接、截图、文字、用户备注</span><i></i><span>处理：类型识别、标签提取、下一步行动、任务草稿</span><i></i><span>输出：任务卡、脚本大纲、素材清单</span>
+              </div>
+              <h3>AI 链路图</h3>
+              <p>我负责定义 AI 输入、输出字段与用户确认机制。</p>
+            </button>
+          </div>
+        </section>
+
+        <section class="portfolio-block tech-block" id="tech" aria-labelledby="tech-title">
+          <div class="block-heading">
+            <span class="note-index">06</span>
+            <h2 id="tech-title">功能结构与技术实现</h2>
+          </div>
+          <div class="tech-grid">
+            <article><div class="card-icon">K</div><strong>Android：Kotlin + Jetpack Compose</strong><p>支撑可运行的移动端 MVP 原型，验证分享入口、收集箱和复盘路径。</p></article>
+            <article><div class="card-icon">DB</div><strong>本地存储：Room</strong><p>支撑无登录 P0 的 topic card、状态更新和任务卡保存验证。</p></article>
+            <article><div class="card-icon">图</div><strong>图片处理：本地文件存储、图片封面</strong><p>支撑截图、图片素材进入卡片，并作为视觉记忆点。</p></article>
+            <article><div class="card-icon">OG</div><strong>链接预览：Open Graph、Twitter Card 解析</strong><p>支撑链接保存后展示来源、标题和封面，提高回看效率。</p></article>
+            <article><div class="card-icon">AI</div><strong>AI 预埋：请求、响应、提示词、Mock AI</strong><p>支撑“创作用途识别”和“下一步行动”的能力边界验证。</p></article>
+            <article><div class="card-icon">Web</div><strong>展示页：HTML、CSS、JavaScript</strong><p>支撑作品集展示、手机交互 Demo、modal 和静态部署。</p></article>
+            <article><div class="card-icon">▶</div><strong>产品视频：HyperFrames</strong><p>支撑面试官在短时间内理解痛点、流程和核心假设。</p></article>
+          </div>
+        </section>
+
+        <section class="portfolio-block business-block" id="business" aria-labelledby="business-title">
+          <div class="block-heading">
+            <span class="note-index">07</span>
+            <h2 id="business-title">商业化假设：仍需验证</h2>
+            <p>当前仅提出可能方向，不表达商业化已经成立。</p>
+          </div>
+          <div class="business-grid">
+            <article><div class="card-icon">Pro</div><h3>个人创作者 Pro 版</h3><p>围绕更高容量、更多任务模板和复盘能力设计。</p></article>
+            <article><div class="card-icon">AI</div><h3>AI 额度包</h3><p>围绕标签识别、任务草稿和素材清单生成次数设计。</p></article>
+            <article><div class="card-icon">Team</div><h3>内容团队与 MCN 协作版</h3><p>围绕团队选题素材池、任务流转和复盘协作设计。</p></article>
+          </div>
+          <div class="validation-list">
+            <span>持续使用频率</span><span>付费意愿</span><span>收藏到任务转化率</span><span>团队协作需求</span><span>迁移意愿</span>
+          </div>
+        </section>
+
+        <section class="portfolio-block summary-block" id="summary" aria-labelledby="summary-title">
+          <span class="note-index">08</span>
+          <h2 id="summary-title">这个项目证明了什么？</h2>
+          <p>
+            这个项目证明我不只是做了一个收藏工具，而是围绕内容创作者的前置工作流，完成了从用户调研、需求分析、竞品判断、MVP 设计、AI 能力边界、Android Demo 到可交互作品集展示的完整产品过程。
+          </p>
+          <div class="summary-actions">
+            <a class="secondary-link" href="#">查看 PRD</a>
+            <a class="secondary-link" href="#">查看用户调研</a>
+            <a class="secondary-link" href="#">查看 Android 项目</a>
+            <a class="secondary-link" href="#">查看产品视频</a>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div class="output-modal" id="outputModal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <button class="modal-close" type="button" data-close-modal>关闭</button>
+        <div id="modalBody"></div>
+      </div>
+    </div>
+    <button class="back-to-top" id="backToTop" type="button" aria-label="返回顶部">↑</button>
+    <script src="app.js"></script>
+  </body>
+</html>
