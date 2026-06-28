@@ -1,0 +1,16 @@
+.gradle/
+.kotlin/
+.idea/
+build/
+local.properties
+*.iml
+app/build/
+.local-env/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+
+# Generated Android artifacts are available under app/build when needed.
+*.apk
+*.aab
