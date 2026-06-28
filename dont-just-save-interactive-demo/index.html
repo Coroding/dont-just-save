@@ -18,6 +18,7 @@
           <a href="#product-video">产品视频</a>
           <a href="#demo">交互 Demo</a>
           <a href="#research">用户调研</a>
+          <a href="#ai-role">AI 角色</a>
           <a href="#product-loop">产品闭环</a>
         </div>
       </nav>
@@ -28,7 +29,7 @@
           <h1>别只收藏</h1>
           <p class="hero-subtitle">把刷到的内容，变成可创作的视频任务</p>
           <p class="hero-positioning">
-            面向内容创作者的 AI 选题与素材管理工具。它不是普通收藏夹，而是创作者前置工作流产品。
+            AI 创作前链路助手。它不是普通收藏夹，而是帮助创作者把收藏内容整理成可确认的创作任务草稿。
           </p>
           <div class="hero-actions">
             <a class="primary-link" href="#demo">开始交互演示</a>
@@ -41,8 +42,8 @@
           <div class="hero-loop-card">
             <span>刷到内容</span>
             <strong>补一句创作启发</strong>
-            <span>AI 识别用途</span>
-            <span>生成视频创作任务</span>
+            <span>AI 提取可复用结构</span>
+            <span>生成任务草稿</span>
           </div>
         </div>
       </section>
@@ -63,7 +64,7 @@
           <p class="eyebrow">Interactive Prototype</p>
           <h2>可交互手机 Demo</h2>
           <p>
-            在手机原型里完成“记录灵感 → AI 识别 → 保存 → 收集箱 → 生成创作任务 → 复盘”的创作者前链路。
+            在手机原型里完成“记录灵感 → AI 识别用途与结构 → 用户确认 → 收集箱 → 生成创作任务草稿 → 复盘推荐”的创作者前链路。
           </p>
         </div>
 
@@ -183,9 +184,25 @@
           </div>
         </section>
 
-        <section class="portfolio-block loop-block" id="product-loop" aria-labelledby="loop-title">
+        <section class="portfolio-block ai-role-block" id="ai-role" aria-labelledby="ai-role-title">
           <div class="block-heading">
             <span class="note-index">04</span>
+            <h2 id="ai-role-title">AI 在产品中的角色</h2>
+            <p>
+              AI 不直接生成完整视频，而是承担创作前链路中的结构化判断：识别收藏内容的创作用途，提取可复用结构，生成下一步行动，并将灵感卡片转化为创作任务草稿。用户确认后才应用 AI 建议。
+            </p>
+          </div>
+          <div class="ai-capability-grid">
+            <article><div class="card-icon">识</div><h3>识别创作用途</h3><p>判断内容适合做选题、标题、封面、脚本、素材或表达参考。</p></article>
+            <article><div class="card-icon">构</div><h3>提取可复用结构</h3><p>把原内容拆成标题结构、脚本节奏、封面布局或案例论据。</p></article>
+            <article><div class="card-icon">行</div><h3>生成下一步行动</h3><p>输出 15 分钟内能执行的小动作，减少收藏后的停滞。</p></article>
+            <article><div class="card-icon">稿</div><h3>生成任务草稿</h3><p>生成可修改的选题、脚本大纲和素材清单，不替代用户判断。</p></article>
+          </div>
+        </section>
+
+        <section class="portfolio-block loop-block" id="product-loop" aria-labelledby="loop-title">
+          <div class="block-heading">
+            <span class="note-index">05</span>
             <h2 id="loop-title">产品闭环：把收藏内容转成创作任务</h2>
           </div>
           <div class="loop-flow detailed-flow" aria-label="产品闭环流程">
@@ -193,9 +210,9 @@
             <i></i>
             <span>补一句创作启发<small>保留当下参考意图</small></span>
             <i></i>
-            <span>AI 识别创作用途<small>判断选题、标题、封面等用途</small></span>
+            <span>AI 识别与结构化<small>判断用途、结构和下一步</small></span>
             <i></i>
-            <span>生成任务卡<small>输出大纲、素材和下一步</small></span>
+            <span>生成任务草稿<small>输出大纲、素材和下一步</small></span>
             <i></i>
             <span>进入任务池与复盘<small>持续推进或暂存筛选</small></span>
           </div>
@@ -203,14 +220,14 @@
 
         <section class="portfolio-block design-output-block" id="outputs" aria-labelledby="design-output-title">
           <div class="block-heading">
-            <span class="note-index">05</span>
+            <span class="note-index">06</span>
             <h2 id="design-output-title">产品设计产出</h2>
             <p>用 HTML/CSS 直接绘制 4 张图形卡，点击可放大查看。</p>
           </div>
           <div class="output-grid">
             <button class="output-card" type="button" data-output-card>
               <div class="output-visual flow-diagram">
-                <span>收藏内容</span><i></i><span>补充启发</span><i></i><span>AI 识别用途</span><i></i><span>生成任务卡</span><i></i><span>进入创作流程</span>
+                <span>收藏内容</span><i></i><span>补充启发</span><i></i><span>AI 识别与结构化</span><i></i><span>生成任务草稿</span><i></i><span>进入创作流程</span>
               </div>
               <h3>核心流程图</h3>
               <p>我负责梳理从收藏到创作任务的转化链路。</p>
@@ -231,7 +248,7 @@
             </button>
             <button class="output-card" type="button" data-output-card>
               <div class="output-visual ai-diagram">
-                <span>输入：链接、截图、文字、用户备注</span><i></i><span>处理：类型识别、标签提取、下一步行动、任务草稿</span><i></i><span>输出：任务卡、脚本大纲、素材清单</span>
+                <span>输入：链接、截图、文字、用户备注</span><i></i><span>处理：类型识别、结构提取、下一步行动、任务草稿</span><i></i><span>输出：用户确认后的任务卡、脚本大纲、素材清单</span>
               </div>
               <h3>AI 链路图</h3>
               <p>我负责定义 AI 输入、输出字段与用户确认机制。</p>
@@ -241,7 +258,7 @@
 
         <section class="portfolio-block tech-block" id="tech" aria-labelledby="tech-title">
           <div class="block-heading">
-            <span class="note-index">06</span>
+            <span class="note-index">07</span>
             <h2 id="tech-title">功能结构与技术实现</h2>
           </div>
           <div class="tech-grid">
@@ -249,7 +266,7 @@
             <article><div class="card-icon">DB</div><strong>本地存储：Room</strong><p>支撑无登录 P0 的 topic card、状态更新和任务卡保存验证。</p></article>
             <article><div class="card-icon">图</div><strong>图片处理：本地文件存储、图片封面</strong><p>支撑截图、图片素材进入卡片，并作为视觉记忆点。</p></article>
             <article><div class="card-icon">OG</div><strong>链接预览：Open Graph、Twitter Card 解析</strong><p>支撑链接保存后展示来源、标题和封面，提高回看效率。</p></article>
-            <article><div class="card-icon">AI</div><strong>AI 预埋：请求、响应、提示词、Mock AI</strong><p>支撑“创作用途识别”和“下一步行动”的能力边界验证。</p></article>
+            <article><div class="card-icon">AI</div><strong>AI 预埋：请求、响应、提示词、Mock AI</strong><p>支撑“用途识别、结构提取、任务草稿”和用户确认机制的能力边界验证。</p></article>
             <article><div class="card-icon">Web</div><strong>展示页：HTML、CSS、JavaScript</strong><p>支撑作品集展示、手机交互 Demo、modal 和静态部署。</p></article>
             <article><div class="card-icon">▶</div><strong>产品视频：HyperFrames</strong><p>支撑面试官在短时间内理解痛点、流程和核心假设。</p></article>
           </div>
@@ -257,7 +274,7 @@
 
         <section class="portfolio-block business-block" id="business" aria-labelledby="business-title">
           <div class="block-heading">
-            <span class="note-index">07</span>
+            <span class="note-index">08</span>
             <h2 id="business-title">商业化假设：仍需验证</h2>
             <p>当前仅提出可能方向，不表达商业化已经成立。</p>
           </div>
@@ -272,7 +289,7 @@
         </section>
 
         <section class="portfolio-block summary-block" id="summary" aria-labelledby="summary-title">
-          <span class="note-index">08</span>
+          <span class="note-index">09</span>
           <h2 id="summary-title">这个项目证明了什么？</h2>
           <p>
             这个项目证明我不只是做了一个收藏工具，而是围绕内容创作者的前置工作流，完成了从用户调研、需求分析、竞品判断、MVP 设计、AI 能力边界、Android Demo 到可交互作品集展示的完整产品过程。

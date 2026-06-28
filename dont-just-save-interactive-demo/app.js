@@ -40,8 +40,11 @@ const defaultState = {
       contentType: "素材案例",
       tags: ["reaction", "案例", "视频结构"],
       userNote: "可以做一期 reaction 视频拆解",
+      reusableStructure: "开场钩子 → 内容片段 → 观点反应 → 总结",
       referenceValue: "开头结构可拆解",
       nextAction: "先拆解这个视频的开头结构",
+      reason: "包含可拆解的视频案例",
+      confidence: 0.88,
       status: "inbox",
       coverType: "link",
       coverGradient: "material",
@@ -179,20 +182,114 @@ function cardTitleFromNote(note) {
   return clean ? clean.slice(0, 18) : "新的视频灵感";
 }
 
-function createMockAiResult() {
-  const note = state.capture.userNote;
-  let contentType = state.capture.contentType;
-  if (note.includes("标题")) contentType = "标题参考";
-  if (note.includes("封面") || note.includes("截图")) contentType = "封面参考";
-  if (note.includes("脚本") || note.includes("结构")) contentType = "脚本结构";
-  if (note.includes("reaction") || note.includes("案例")) contentType = "素材案例";
+function createMockAiResult(source = state.capture) {
+  const signal = [
+    source.userNote,
+    source.sourcePreview,
+    source.sourcePlatform,
+    source.sourceDomain,
+    source.contentType,
+  ].filter(Boolean).join(" ").toLowerCase();
+  const materialList = [
+    source.sourceUrl ? `原链接：${source.sourceUrl}` : "补充原内容链接或截图",
+    `参考灵感：${source.userNote || source.title || "待补充"}`,
+  ];
+
+  if (hasAny(signal, ["reaction", "反应", "评论", "歌手", "视频", "综艺", "看完"])) {
+    return {
+      contentType: "素材案例",
+      tags: ["reaction", "视频结构", "案例拆解"],
+      reusableStructure: "开场钩子 → 内容片段 → 观点反应 → 总结",
+      referenceValue: "适合拆解 reaction 视频节奏设计",
+      nextAction: "先拆出这个视频的前 30 秒结构",
+      shouldCreateTask: true,
+      confidence: 0.88,
+      reason: "包含可拆解的视频案例",
+      taskDraft: {
+        taskTitle: "拆解一个 reaction 视频为什么吸引人",
+        contentDirection: "案例拆解",
+        outline: ["为什么 reaction 视频容易吸引点击", "拆解原视频结构", "总结可复用技巧", "给普通创作者行动建议"],
+        materialList: [...materialList, "标题结构", "封面截图", "评论区反馈"],
+        nextAction: "先写出 3 个标题版本",
+      },
+    };
+  }
+
+  if (hasAny(signal, ["标题", "爆款", "选题", "热点", "话题", "流量"])) {
+    return {
+      contentType: signal.includes("选题") ? "选题灵感" : "标题参考",
+      tags: ["标题结构", "选题角度", "爆款案例"],
+      reusableStructure: "强问题 + 明确对象 + 结果反差",
+      referenceValue: "适合提炼成自己的视频选题",
+      nextAction: "先改写 3 个适合自己账号的标题",
+      shouldCreateTask: true,
+      confidence: 0.84,
+      reason: "标题和选题信号明确",
+      taskDraft: {
+        taskTitle: source.userNote?.slice(0, 25) || "把爆款标题改成视频选题",
+        contentDirection: "选题策划",
+        outline: ["原标题为什么有效", "适配自己的受众", "改写 3 个标题", "选择一个进入脚本"],
+        materialList,
+        nextAction: "先写出 3 个标题版本",
+      },
+    };
+  }
+
+  if (hasAny(signal, ["封面", "截图", "配色", "字体", "排版", "视觉", "海报"])) {
+    return {
+      contentType: "封面参考",
+      tags: ["封面结构", "视觉参考", "点击率"],
+      reusableStructure: "大字标题 + 主体图像 + 低饱和背景",
+      referenceValue: "适合作为视频封面排版参考",
+      nextAction: "先标注这个封面里可复用的布局",
+      shouldCreateTask: Boolean(source.userNote && source.userNote.length >= 8),
+      confidence: 0.8,
+      reason: "视觉和封面线索突出",
+      taskDraft: {
+        taskTitle: source.userNote?.slice(0, 25) || "整理一组可复用封面样式",
+        contentDirection: "封面参考",
+        outline: ["观察封面层级", "标注标题和主体", "复用到自己的选题", "生成封面草图"],
+        materialList,
+        nextAction: "先标注 3 个可复用布局点",
+      },
+    };
+  }
+
+  if (hasAny(signal, ["教程", "步骤", "方法", "怎么做", "教你", "指南", "流程", "脚本", "结构"])) {
+    return {
+      contentType: "脚本结构",
+      tags: ["教程结构", "步骤拆解", "方法论"],
+      reusableStructure: "问题引入 → 步骤演示 → 注意事项 → 总结",
+      referenceValue: "适合复用为教程类视频脚本结构",
+      nextAction: "先列出可复用的 4 个步骤",
+      shouldCreateTask: true,
+      confidence: 0.86,
+      reason: "包含方法或流程线索",
+      taskDraft: {
+        taskTitle: source.userNote?.slice(0, 25) || "拆出一个教程视频脚本",
+        contentDirection: "教程方法",
+        outline: ["开场提出问题", "演示关键步骤", "指出常见错误", "总结行动清单"],
+        materialList,
+        nextAction: "先写出教程前 30 秒脚本",
+      },
+    };
+  }
+
   return {
-    contentType,
-    tags: contentType === "标题参考" ? ["标题结构", "点击理由"] : ["可执行", "视频结构", "创作者"],
-    referenceValue: contentType === "封面参考" ? "可参考视觉钩子" : "适合转成视频任务",
-    nextAction: contentType === "标题参考" ? "先提取标题结构" : "先补充脚本大纲",
-    shouldCreateTask: true,
+    contentType: source.contentType || "选题灵感",
+    tags: ["创作灵感", "素材参考", "待完善"],
+    reusableStructure: "从收藏内容中提取一个可复用创作角度",
+    referenceValue: "需要用户补充具体创作意图",
+    nextAction: "先补一句这条内容启发你做什么视频",
+    shouldCreateTask: false,
+    confidence: 0.72,
+    reason: "信息不足需确认",
+    taskDraft: null,
   };
+}
+
+function hasAny(text, keywords) {
+  return keywords.some((keyword) => text.includes(keyword));
 }
 
 function createCardFromCapture(markTaskCreated = false) {
@@ -206,8 +303,13 @@ function createCardFromCapture(markTaskCreated = false) {
     contentType: ai?.contentType || state.capture.contentType,
     tags: ai?.tags || [],
     userNote: state.capture.userNote.trim() || "可以做一期内容拆解视频",
+    reusableStructure: ai?.reusableStructure || "等待 AI 提取可复用结构",
     referenceValue: ai?.referenceValue || "等待进一步判断",
     nextAction: ai?.nextAction || "先补充脚本大纲",
+    reason: ai?.reason || "尚未应用 AI 建议",
+    confidence: ai?.confidence || 0,
+    aiApplied: Boolean(ai),
+    taskDraft: ai?.taskDraft || null,
     status: markTaskCreated ? "planned" : "inbox",
     coverType: state.capture.coverType,
     coverGradient: state.capture.coverGradient,
@@ -224,16 +326,17 @@ function createTaskFromCard(card) {
   if (existing) return existing;
   const task = {
     id: id("task"),
-    title: card.userNote.slice(0, 25) || card.title,
-    contentDirection: card.contentType,
+    title: card.taskDraft?.taskTitle || card.userNote.slice(0, 25) || card.title,
+    contentDirection: card.taskDraft?.contentDirection || card.contentType,
     status: "待完善",
-    outline: ["开场痛点", "参考案例", "我的观点或演示", "结论与行动建议"],
-    materialList: [
+    outline: card.taskDraft?.outline || ["开场痛点", "参考案例", "我的观点或演示", "结论与行动建议"],
+    materialList: card.taskDraft?.materialList || [
       card.sourceUrl ? `来源链接：${card.sourceUrl}` : "补充来源链接或截图",
       `参考灵感：${card.title}`,
     ],
-    nextAction: card.nextAction || "先补充脚本大纲",
+    nextAction: card.taskDraft?.nextAction || card.nextAction || "先补充脚本大纲",
     sourceCardIds: [card.id],
+    generatedByAi: Boolean(card.aiApplied || card.taskDraft),
     createdAt: Date.now(),
   };
   state.tasks.unshift(task);
@@ -372,8 +475,11 @@ function renderDetail() {
         <p><strong>用户备注</strong></p>
         <p>${escapeHtml(card.userNote)}</p>
         <div class="chip-row">${card.tags.map((tag) => `<span class="chip">AI ${escapeHtml(tag)}</span>`).join("")}</div>
+        <p><strong>可复用结构</strong>：${escapeHtml(card.reusableStructure || "等待 AI 提取")}</p>
         <p><strong>参考价值</strong>：${escapeHtml(card.referenceValue)}</p>
         <p><strong>下一步行动</strong>：${escapeHtml(card.nextAction)}</p>
+        <p><strong>判断理由</strong>：${escapeHtml(card.reason || "尚未生成")}</p>
+        <p><strong>关联任务状态</strong>：${card.taskCreated ? "已转为创作任务" : "尚未生成任务草稿"}</p>
         <p class="caption">来源链接：${escapeHtml(card.sourceUrl || "暂无链接")}</p>
       </div>
       <button class="primary-button" data-action="task-from-detail" data-id="${card.id}">生成创作任务</button>
@@ -411,7 +517,9 @@ function renderTaskDetail() {
     <section class="screen">
       ${topbar("任务详情", "go-task-pool")}
       <h2 class="page-title">${escapeHtml(task.title)}</h2>
+      ${task.generatedByAi ? `<p class="page-subtitle">AI 生成的创作任务草稿：由收藏内容整理生成，用户可继续修改标题、脚本大纲和素材清单。</p>` : ""}
       <div class="chip-row">
+        ${task.generatedByAi ? `<span class="chip active">AI 生成草稿</span>` : ""}
         <span class="chip ${chipClass(task.contentDirection)}">${task.contentDirection}</span>
         <span class="chip">${task.status}</span>
       </div>
@@ -451,6 +559,7 @@ function renderReview() {
       <p class="caption">${state.reviewIndex + 1} / ${reviewCards.length}</p>
       <h2 class="page-title">这个能变成哪类视频任务？</h2>
       ${renderAssetCard(card, { compactActions: true })}
+      ${reviewAiRecommendation(card)}
       <button class="primary-button" data-action="review-task" data-id="${card.id}">生成创作任务</button>
       <button class="secondary-button" data-action="join-existing">加入已有任务</button>
       <button class="secondary-button" data-action="review-later" data-id="${card.id}">以后再看</button>
@@ -494,9 +603,33 @@ function aiResult(ai, applied) {
         ${ai.tags.map((tag) => `<span class="chip">#${escapeHtml(tag)}</span>`).join("")}
       </div>
       <p><strong>参考价值</strong>：${escapeHtml(ai.referenceValue)}</p>
+      <p><strong>可复用结构</strong>：${escapeHtml(ai.reusableStructure)}</p>
       <p><strong>下一步行动</strong>：${escapeHtml(ai.nextAction)}</p>
       <p><strong>建议转任务</strong>：${ai.shouldCreateTask ? "是" : "否"}</p>
-      <button class="secondary-button" data-action="apply-ai">${applied ? "已应用建议" : "应用建议"}</button>
+      <p><strong>判断理由</strong>：${escapeHtml(ai.reason)} · 置信度 ${Math.round((ai.confidence || 0) * 100)}%</p>
+      <div class="inline-actions">
+        <button class="secondary-button" data-action="apply-ai">${applied ? "已应用建议" : "应用建议"}</button>
+        <button class="primary-button" data-action="save-task">生成创作任务</button>
+      </div>
+    </div>
+  `;
+}
+
+function reviewAiRecommendation(card) {
+  const ai = createMockAiResult({
+    userNote: card.userNote,
+    sourcePreview: card.title,
+    sourcePlatform: card.sourcePlatform,
+    sourceDomain: card.sourceDomain,
+    sourceUrl: card.sourceUrl,
+    contentType: card.contentType,
+  });
+  return `
+    <div class="card ai-card compact-ai">
+      <h3>AI 推荐：${escapeHtml(ai.contentType)}</h3>
+      <p><strong>理由</strong>：${escapeHtml(ai.reason)}</p>
+      <p><strong>建议动作</strong>：${ai.shouldCreateTask ? "生成创作任务" : "先补充启发后再判断"}</p>
+      <p><strong>下一步</strong>：${escapeHtml(ai.nextAction)}</p>
     </div>
   `;
 }
@@ -547,12 +680,14 @@ function renderTaskCard(task) {
     <article class="task-card">
       <h3>${escapeHtml(task.title)}</h3>
       <div class="chip-row">
+        ${task.generatedByAi ? `<span class="chip active">AI 生成草稿</span>` : ""}
         <span class="chip ${chipClass(task.contentDirection)}">${task.contentDirection}</span>
         <span class="chip">${task.status}</span>
         <span class="chip">关联素材 ${task.sourceCardIds.length}</span>
       </div>
       <p><strong>下一步</strong>：${escapeHtml(task.nextAction)}</p>
       <ol class="outline-list">${task.outline.slice(0, 3).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ol>
+      <ul class="material-list">${task.materialList.slice(0, 2).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
       <button class="secondary-button" data-action="open-task" data-id="${task.id}">查看详情</button>
     </article>
   `;
@@ -734,7 +869,31 @@ function markScript() {
 }
 
 function reviewTask(cardId) {
-  taskFromCard(cardId);
+  const card = findCard(cardId);
+  if (!card) return;
+  const ai = createMockAiResult({
+    userNote: card.userNote,
+    sourcePreview: card.title,
+    sourcePlatform: card.sourcePlatform,
+    sourceDomain: card.sourceDomain,
+    sourceUrl: card.sourceUrl,
+    contentType: card.contentType,
+  });
+  Object.assign(card, {
+    contentType: ai.contentType,
+    tags: ai.tags,
+    reusableStructure: ai.reusableStructure,
+    referenceValue: ai.referenceValue,
+    nextAction: ai.nextAction,
+    reason: ai.reason,
+    confidence: ai.confidence,
+    aiApplied: true,
+    taskDraft: ai.taskDraft,
+  });
+  const task = createTaskFromCard(card);
+  if (!task) return;
+  showToast("已根据 AI 推荐生成任务");
+  setScreen("taskPool", { selectedTaskId: task.id });
 }
 
 function reviewMark(cardId, status) {
