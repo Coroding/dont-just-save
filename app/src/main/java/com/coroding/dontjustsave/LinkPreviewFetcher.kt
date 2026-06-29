@@ -2,6 +2,7 @@ package com.coroding.dontjustsave
 
 import android.util.Log
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,6 +13,11 @@ data class LinkPreviewResult(
     val previewImageUrl: String?,
     val previewFetchedAt: Long,
     val previewStatus: String,
+    val sourceTitle: String? = previewTitle,
+    val sourceDescription: String? = previewDescription,
+    val sourceAuthor: String? = null,
+    val sourceType: String? = null,
+    val resolvedUrl: String? = null,
 )
 
 data class PreviewImageCandidate(
@@ -51,31 +57,46 @@ object LinkPreviewFetcher {
                         reader.readText()
                     }
                     val baseUrl = it.url?.toString().orEmpty().ifBlank { finalUrl }
-                    val ogTitle = extractMetaContent(html, "og:title")
-                    val twitterTitle = extractMetaContent(html, "twitter:title")
-                    val pageTitle = extractTitle(html)
-                    val description = extractMetaContent(html, "og:description")
+                    val title = (
+                        extractMetaContent(html, "og:title")
+                            ?: extractMetaContent(html, "twitter:title")
+                            ?: extractTitle(html)
+                            ?: extractH1(html)
+                        )
+                        ?.takeIf { title -> title.isNotBlank() }
+                    val description = (
+                        extractMetaContent(html, "og:description")
                         ?: extractMetaContent(html, "description")
                         ?: extractMetaContent(html, "twitter:description")
+                        ?: extractFirstParagraph(html)
+                        )
+                        ?.takeIf { text -> text.isNotBlank() }
+                    val author = extractMetaContent(html, "author")
+                        ?: extractMetaContent(html, "article:author")
+                        ?: extractAuthorFromJsonLd(html)
                     val imageUrl = extractPreviewImageUrl(html, baseUrl)
-                    val title = (ogTitle ?: twitterTitle ?: pageTitle)
-                        ?.takeIf { title -> title.isNotBlank() }
-                    val cleanDescription = description?.takeIf { text -> text.isNotBlank() }
                     val cleanImageUrl = imageUrl?.takeIf { image -> image.isNotBlank() }
+                    val sourceType = determineSourceType(html, baseUrl)
 
                     Log.d(TAG, "sourceUrl=$sourceUrl finalUrl=$baseUrl")
                     Log.d(TAG, "previewTitle=${title.orEmpty()}")
                     Log.d(TAG, "previewImageUrl=${cleanImageUrl.orEmpty()}")
+                    // TODO metrics: link_metadata_extracted and source_title_extracted.
 
-                    if (title == null && cleanDescription == null && cleanImageUrl == null) {
-                        failed(fetchedAt)
+                    if (title == null && description == null && cleanImageUrl == null && author == null) {
+                        failed(fetchedAt, baseUrl)
                     } else {
                         LinkPreviewResult(
                             previewTitle = title,
-                            previewDescription = cleanDescription,
+                            previewDescription = description,
                             previewImageUrl = cleanImageUrl,
                             previewFetchedAt = fetchedAt,
                             previewStatus = "success",
+                            sourceTitle = title,
+                            sourceDescription = description,
+                            sourceAuthor = author?.takeIf { value -> value.isNotBlank() },
+                            sourceType = sourceType,
+                            resolvedUrl = baseUrl,
                         )
                     }
                 }
@@ -86,12 +107,16 @@ object LinkPreviewFetcher {
         }
     }
 
-    private fun failed(fetchedAt: Long): LinkPreviewResult = LinkPreviewResult(
+    private fun failed(
+        fetchedAt: Long,
+        resolvedUrl: String? = null,
+    ): LinkPreviewResult = LinkPreviewResult(
         previewTitle = null,
         previewDescription = null,
         previewImageUrl = null,
         previewFetchedAt = fetchedAt,
         previewStatus = "failed",
+        resolvedUrl = resolvedUrl,
     )
 
     private fun openConnection(url: String): HttpURLConnection {
@@ -284,6 +309,88 @@ object LinkPreviewFetcher {
             ?.getOrNull(1)
             ?.let(::decodeHtmlEntities)
             ?.trim()
+    }
+
+    private fun extractH1(html: String): String? {
+        val regex = Regex(
+            """<h1[^>]*>(.*?)</h1>""",
+            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+        )
+        return regex.find(html)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.let(::stripHtmlTags)
+            ?.let(::decodeHtmlEntities)
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+    }
+
+    private fun extractFirstParagraph(html: String): String? {
+        val regex = Regex(
+            """<p[^>]*>(.*?)</p>""",
+            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+        )
+        return regex.findAll(html)
+            .map { it.groupValues.getOrNull(1).orEmpty() }
+            .map(::stripHtmlTags)
+            .map(::decodeHtmlEntities)
+            .map { it.trim() }
+            .firstOrNull { it.length in 20..180 }
+    }
+
+    private fun extractAuthorFromJsonLd(html: String): String? {
+        val scriptRegex = Regex(
+            """<script[^>]+type\s*=\s*["']application/ld\+json["'][^>]*>(.*?)</script>""",
+            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+        )
+        val authorRegexes = listOf(
+            Regex(""""author"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"""", RegexOption.IGNORE_CASE),
+            Regex(""""author"\s*:\s*"([^"]+)"""", RegexOption.IGNORE_CASE),
+            Regex(""""creator"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"""", RegexOption.IGNORE_CASE),
+            Regex(""""channel"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"""", RegexOption.IGNORE_CASE),
+        )
+        return scriptRegex.findAll(html)
+            .map { decodeHtmlEntities(it.groupValues.getOrNull(1).orEmpty()) }
+            .firstNotNullOfOrNull { json ->
+                authorRegexes.firstNotNullOfOrNull { regex ->
+                    regex.find(json)?.groupValues?.getOrNull(1)
+                }
+            }
+            ?.let(::decodeHtmlEntities)
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+    }
+
+    private fun determineSourceType(html: String, resolvedUrl: String): String {
+        val domain = domainFromUrl(resolvedUrl).lowercase()
+        val ogType = extractMetaContent(html, "og:type").orEmpty().lowercase()
+        return when {
+            ogType.contains("video") -> "video"
+            domain.contains("bilibili.com") ||
+                domain.contains("b23.tv") ||
+                domain.contains("youtube.com") ||
+                domain.contains("youtu.be") ||
+                domain.contains("douyin.com") -> "video"
+            domain.contains("mp.weixin.qq.com") ||
+                domain.contains("zhihu.com") ||
+                domain.contains("medium.com") ||
+                ogType.contains("article") ||
+                extractFirstParagraph(html) != null -> "article"
+            else -> "unknown"
+        }
+    }
+
+    private fun domainFromUrl(url: String): String {
+        return runCatching { URI(url).host }
+            .getOrNull()
+            ?.removePrefix("www.")
+            ?.takeIf { it.isNotBlank() }
+            ?: url
+    }
+
+    private fun stripHtmlTags(value: String): String {
+        return value.replace(Regex("<[^>]+>"), " ")
+            .replace(Regex("\\s+"), " ")
     }
 
     fun normalizeUrl(rawUrl: String, baseUrl: String): String? {

@@ -1,5 +1,6 @@
 package com.coroding.dontjustsave.ai
 
+import com.coroding.dontjustsave.data.TopicCardEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -14,6 +15,13 @@ class AiRepository(
         // TODO AI: call config.baseUrl with config.apiKey and config.modelName.
         // Keep UI confirmation before applying any response.
         Result.failure(IllegalStateException("真实 AI 接口尚未配置"))
+    }
+
+    suspend fun classifyCardForCreativeUse(
+        card: TopicCardEntity,
+    ): Result<AiClassificationSuggestion> = withContext(Dispatchers.IO) {
+        // TODO metrics: ai_classification_suggested.
+        Result.success(mockClassificationSuggestion(card))
     }
 
     private fun mockResponse(request: AiRequest): AiResponse {
@@ -43,10 +51,129 @@ class AiRepository(
         }
     }
 
+    private fun mockClassificationSuggestion(card: TopicCardEntity): AiClassificationSuggestion {
+        val sourceTitle = card.sourceTitle
+            ?: card.previewTitle
+            ?: card.title.takeIf { it.isNotBlank() }
+            ?: card.sourceDomain
+            ?: "未命名收藏"
+        val signal = listOfNotNull(
+            card.userNote,
+            card.sourceTitle,
+            card.sourceDescription,
+            card.sourceAuthor,
+            card.sourcePlatform,
+            card.sourceDomain,
+            card.sourceType,
+            card.sourceUrl,
+            card.resolvedUrl,
+            card.previewTitle,
+            card.sourceText,
+            card.category,
+        ).joinToString(" ").lowercase()
+
+        val base = when {
+            signal.hasAny("reaction", "反应", "评论", "歌手", "视频", "综艺", "看完") ->
+                ClassificationRule(
+                    category = "素材案例",
+                    tags = listOf("reaction", "视频结构", "案例拆解"),
+                    nextAction = "先拆出这个视频的前 30 秒结构",
+                    reusableStructure = "开场钩子 -> 片段反应 -> 观点总结",
+                    referenceValue = "可拆解视频结构",
+                    reason = "包含可拆解的视频案例",
+                    confidence = 0.88f,
+                )
+            signal.hasAny("标题", "爆款", "热点", "选题", "话题", "流量") ->
+                ClassificationRule(
+                    category = if (signal.contains("选题") || signal.contains("话题")) "选题灵感" else "标题参考",
+                    tags = listOf("标题结构", "选题角度", "爆款案例"),
+                    nextAction = "先改写 3 个适合自己账号的标题",
+                    reusableStructure = "强问题 + 明确对象 + 结果反差",
+                    referenceValue = "可转成标题结构",
+                    reason = "更适合作为选题或标题结构参考",
+                    confidence = 0.84f,
+                )
+            signal.hasAny("封面", "截图", "配色", "字体", "排版", "视觉", "海报") ->
+                ClassificationRule(
+                    category = "封面参考",
+                    tags = listOf("封面结构", "视觉参考", "点击率"),
+                    nextAction = "先标注这个封面的可复用布局",
+                    reusableStructure = "主体图 + 大字标题 + 背景层次",
+                    referenceValue = "可复用视觉布局",
+                    reason = "明确包含视觉表达参考",
+                    confidence = 0.82f,
+                )
+            signal.hasAny("教程", "步骤", "方法", "怎么做", "指南", "流程") ->
+                ClassificationRule(
+                    category = "脚本结构",
+                    tags = listOf("教程结构", "步骤拆解", "方法论"),
+                    nextAction = "先列出可复用的 4 个步骤",
+                    reusableStructure = "问题引入 -> 步骤演示 -> 总结",
+                    referenceValue = "可复用教程脚本",
+                    reason = "适合复用为教程脚本结构",
+                    confidence = 0.86f,
+                )
+            card.sourceType == "video" && sourceTitle.isNotBlank() ->
+                ClassificationRule(
+                    category = "素材案例",
+                    tags = listOf("视频案例", "内容拆解", "参考素材"),
+                    nextAction = "先判断它适合参考选题、结构还是表达方式",
+                    reusableStructure = "视频案例 -> 可参考点 -> 自用改写",
+                    referenceValue = "可作为视频案例输入",
+                    reason = "视频内容适合作为创作案例输入",
+                    confidence = 0.78f,
+                )
+            card.sourceType == "article" ->
+                ClassificationRule(
+                    category = "选题灵感",
+                    tags = listOf("观点素材", "文章参考", "选题输入"),
+                    nextAction = "先提取文章中可支撑一个视频观点的段落",
+                    reusableStructure = "观点 -> 论据 -> 视频角度",
+                    referenceValue = "可提取观点素材",
+                    reason = "图文/文章适合作为观点或素材输入",
+                    confidence = 0.76f,
+                )
+            card.sourceType == "image" ->
+                ClassificationRule(
+                    category = "封面参考",
+                    tags = listOf("图片素材", "视觉参考", "封面参考"),
+                    nextAction = "先标注这张图可复用的视觉元素",
+                    reusableStructure = "视觉元素 -> 封面布局 -> 自用草图",
+                    referenceValue = "可参考视觉元素",
+                    reason = "图片更适合作为视觉或素材参考",
+                    confidence = 0.77f,
+                )
+            else ->
+                ClassificationRule(
+                    category = "待判断",
+                    tags = listOf("待整理", "创作灵感"),
+                    nextAction = "先补一句这个内容启发你做什么视频",
+                    reusableStructure = "补充意图后再判断",
+                    referenceValue = "需要补充收藏理由",
+                    reason = "当前信息不足，需要用户补充意图",
+                    confidence = 0.58f,
+                )
+        }
+
+        return AiClassificationSuggestion(
+            cardId = card.id,
+            sourceTitle = sourceTitle,
+            sourcePlatform = card.sourcePlatform,
+            currentCategory = card.category,
+            suggestedCategory = base.category,
+            suggestedTags = base.tags,
+            suggestedNextAction = base.nextAction,
+            reusableStructure = base.reusableStructure,
+            referenceValue = base.referenceValue,
+            reason = base.reason,
+            confidence = base.confidence,
+        )
+    }
+
     private fun buildReactionResponse(request: AiRequest) = AiResponse(
         contentType = "素材案例",
         tags = listOf("reaction", "视频结构", "案例拆解"),
-        reusableStructure = "开场钩子 → 内容片段 → 观点反应 → 总结",
+        reusableStructure = "开场钩子 -> 内容片段 -> 观点反应 -> 总结",
         referenceValue = "适合拆解 reaction 视频节奏设计",
         nextAction = "先拆出这个视频的前 30 秒结构",
         shouldCreateTask = true,
@@ -56,10 +183,10 @@ class AiRepository(
             taskTitle = "拆解一个 reaction 视频为什么吸引人",
             contentDirection = "案例拆解",
             outline = listOf(
-                "开场：为什么 reaction 视频容易吸引点击",
-                "案例：拆解原视频结构",
-                "方法：总结可复用技巧",
-                "结尾：给普通创作者的行动建议",
+                "为什么 reaction 视频容易吸引点击",
+                "拆解原视频结构",
+                "总结可复用技巧",
+                "给普通创作者行动建议",
             ),
             materialList = buildMaterialList(request, "标题结构", "封面截图", "评论区反馈"),
             nextAction = "先写出 3 个标题版本",
@@ -105,7 +232,7 @@ class AiRepository(
     private fun buildScriptResponse(request: AiRequest) = AiResponse(
         contentType = "脚本结构",
         tags = listOf("教程结构", "步骤拆解", "方法论"),
-        reusableStructure = "问题引入 → 步骤演示 → 注意事项 → 总结",
+        reusableStructure = "问题引入 -> 步骤演示 -> 注意事项 -> 总结",
         referenceValue = "适合复用为教程类视频脚本结构",
         nextAction = "先列出可复用的 4 个步骤",
         shouldCreateTask = true,
@@ -123,7 +250,7 @@ class AiRepository(
     private fun buildMaterialResponse(request: AiRequest) = AiResponse(
         contentType = "素材案例",
         tags = listOf("素材参考", "案例积累", "观点补充"),
-        reusableStructure = "案例现象 → 可引用观点 → 我的补充",
+        reusableStructure = "案例现象 -> 可引用观点 -> 我的补充",
         referenceValue = "适合作为视频论据或案例",
         nextAction = "先记录这条素材能支撑哪个观点",
         shouldCreateTask = false,
@@ -157,4 +284,14 @@ class AiRepository(
     private fun String.hasAny(vararg keywords: String): Boolean {
         return keywords.any { contains(it.lowercase()) }
     }
+
+    private data class ClassificationRule(
+        val category: String,
+        val tags: List<String>,
+        val nextAction: String,
+        val reusableStructure: String,
+        val referenceValue: String,
+        val reason: String,
+        val confidence: Float,
+    )
 }

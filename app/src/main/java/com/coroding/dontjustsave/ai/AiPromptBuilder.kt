@@ -1,5 +1,7 @@
 package com.coroding.dontjustsave.ai
 
+import com.coroding.dontjustsave.data.TopicCardEntity
+
 object AiPromptBuilder {
     fun buildCreativeUseRecognitionPrompt(request: AiRequest): String {
         return """
@@ -20,7 +22,7 @@ object AiPromptBuilder {
             {
               "contentType": "选题灵感 | 标题参考 | 封面参考 | 脚本结构 | 素材案例 | 表达方式 | 待判断",
               "tags": ["最多3个标签"],
-              "reusableStructure": "这条内容可复用的结构，40字以内",
+              "reusableStructure": "这条内容可复用的结构，30字以内",
               "referenceValue": "最值得参考的点，30字以内",
               "nextAction": "15分钟内可执行的下一步行动",
               "shouldCreateTask": true,
@@ -61,7 +63,7 @@ object AiPromptBuilder {
             {
               "contentType": "选题灵感 | 标题参考 | 封面参考 | 脚本结构 | 素材案例 | 表达方式 | 待判断",
               "tags": ["最多3个标签"],
-              "reusableStructure": "这条内容可复用的结构，40字以内",
+              "reusableStructure": "这条内容可复用的结构，30字以内",
               "referenceValue": "这条内容最值得参考的点，20字以内",
               "nextAction": "15分钟内可执行的下一步动作",
               "shouldCreateTask": true,
@@ -124,6 +126,69 @@ object AiPromptBuilder {
               "referenceValue": "最值得参考的点",
               "shouldCreateTask": true
             }
+        """.trimIndent()
+    }
+
+    fun buildCollectionClassificationPrompt(cards: List<TopicCardEntity>): String {
+        val cardJson = cards.joinToString(separator = ",\n") { card ->
+            """
+            {
+              "id": "${card.id}",
+              "sourceTitle": "${card.sourceTitle.orEmpty()}",
+              "sourceDescription": "${card.sourceDescription.orEmpty()}",
+              "sourcePlatform": "${card.sourcePlatform}",
+              "sourceDomain": "${card.sourceDomain.orEmpty()}",
+              "sourceType": "${card.sourceType.orEmpty()}",
+              "userNote": "${card.userNote}",
+              "currentCategory": "${card.category}"
+            }
+            """.trimIndent()
+        }
+
+        return """
+            系统角色：
+            你是一个面向内容创作者的创作前链路分类助手。你的任务不是生成完整视频，而是根据收藏内容的标题、摘要、来源平台和用户备注，判断每条内容在视频创作中最适合承担什么用途。
+
+            分类只能从以下选项中选择：
+            选题灵感 / 标题参考 / 封面参考 / 脚本结构 / 素材案例 / 表达方式 / 待判断
+
+            输入：
+            每条收藏包括：
+            - id
+            - sourceTitle
+            - sourceDescription
+            - sourcePlatform
+            - sourceDomain
+            - sourceType
+            - userNote
+            - currentCategory
+
+            收藏列表：
+            [
+            $cardJson
+            ]
+
+            输出必须是 JSON 数组：
+            [
+              {
+                "id": "card id",
+                "suggestedCategory": "选题灵感",
+                "suggestedTags": ["最多3个标签"],
+                "reusableStructure": "可复用结构，30字以内",
+                "referenceValue": "最值得参考的点，30字以内",
+                "nextAction": "15分钟内可执行的下一步行动",
+                "confidence": 0.0,
+                "reason": "判断理由，30字以内"
+              }
+            ]
+
+            规则：
+            1. 不要生成完整视频。
+            2. 不要鼓励搬运或抄袭。
+            3. 不确定时输出“待判断”，并让用户补充收藏理由。
+            4. 不要覆盖用户已有分类，只返回建议。
+            5. 标题和用户备注冲突时，优先相信用户备注。
+            6. 输出必须是严格 JSON，不要 Markdown。
         """.trimIndent()
     }
 }

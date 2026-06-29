@@ -647,6 +647,49 @@ textarea:focus {
   margin: 10px 0 14px;
 }
 
+.batch-entry {
+  margin: 14px 0;
+  background: rgba(255, 227, 179, 0.46);
+}
+
+.batch-panel {
+  display: grid;
+  gap: 14px;
+  margin: 14px 0;
+  padding: 16px;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-card);
+  background: var(--card);
+}
+
+.batch-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.batch-panel-head h3,
+.suggestion-card h4 {
+  margin-bottom: 6px;
+}
+
+.suggestion-list {
+  display: grid;
+  gap: 12px;
+}
+
+.suggestion-card {
+  padding: 14px;
+  border-radius: 20px;
+  background: var(--soft-bg);
+}
+
+.suggestion-card p {
+  margin-bottom: 8px;
+}
+
 .asset-card {
   position: relative;
   padding: 16px;

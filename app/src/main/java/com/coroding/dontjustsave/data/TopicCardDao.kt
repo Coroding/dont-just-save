@@ -26,6 +26,11 @@ interface TopicCardDao {
             previewImageUrl = :previewImageUrl,
             previewFetchedAt = :previewFetchedAt,
             previewStatus = :previewStatus,
+            sourceTitle = :sourceTitle,
+            sourceDescription = :sourceDescription,
+            sourceAuthor = :sourceAuthor,
+            sourceType = :sourceType,
+            resolvedUrl = :resolvedUrl,
             updatedAt = :updatedAt
         WHERE id = :cardId
         """,
@@ -37,6 +42,11 @@ interface TopicCardDao {
         previewImageUrl: String?,
         previewFetchedAt: Long?,
         previewStatus: String,
+        sourceTitle: String?,
+        sourceDescription: String?,
+        sourceAuthor: String?,
+        sourceType: String?,
+        resolvedUrl: String?,
         updatedAt: Long,
     )
 
