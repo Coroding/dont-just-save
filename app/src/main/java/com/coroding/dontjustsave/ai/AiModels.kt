@@ -37,10 +37,25 @@ data class CreationTaskDraft(
     val nextAction: String?,
 )
 
+data class AiClassificationSuggestion(
+    val cardId: String,
+    val sourceTitle: String,
+    val sourcePlatform: String,
+    val currentCategory: String,
+    val suggestedCategory: String,
+    val suggestedTags: List<String>,
+    val suggestedNextAction: String,
+    val reusableStructure: String,
+    val referenceValue: String,
+    val reason: String,
+    val confidence: Float,
+)
+
 object AiTaskMode {
     const val CLASSIFY_CONTENT = "classify_content"
     const val GENERATE_TAGS = "generate_tags"
     const val SUGGEST_NEXT_ACTION = "suggest_next_action"
     const val GENERATE_CREATION_TASK = "generate_creation_task"
     const val GENERATE_OUTLINE = "generate_outline"
+    const val BATCH_CLASSIFY = "batch_classify"
 }

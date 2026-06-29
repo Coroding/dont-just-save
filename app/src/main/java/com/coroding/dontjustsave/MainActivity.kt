@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.coroding.dontjustsave.ai.AiRepository
+import com.coroding.dontjustsave.ai.AiClassificationSuggestion
 import com.coroding.dontjustsave.ai.AiRequest
 import com.coroding.dontjustsave.ai.AiResponse
 import com.coroding.dontjustsave.ai.AiTaskMode
@@ -802,6 +803,9 @@ private fun createDemoTopicCards(): List<TopicCardEntity> {
             sourceDomain = "example.com",
             shareType = "link",
             imageUri = null,
+            sourceTitle = "AI 笔记工具上手体验：新手如何整理视频素材",
+            sourceDescription = "适合新手 UP 主先整理素材，再拆成视频任务。",
+            sourceType = "article",
             userNote = "做一期 AI 工具体验：新手 UP 主如何把素材变成视频选题。",
             category = "选题灵感",
             status = "inbox",
@@ -817,6 +821,9 @@ private fun createDemoTopicCards(): List<TopicCardEntity> {
             sourceDomain = "example.com",
             shareType = "link",
             imageUri = null,
+            sourceTitle = "知识博主连续 7 天更新选题池的案例",
+            sourceDescription = "重点是标题、封面和开场节奏。",
+            sourceType = "article",
             userNote = "拆解一个 UP 主如何把零散素材变成系列视频任务。",
             category = "标题参考",
             status = "planned",
@@ -832,6 +839,7 @@ private fun createDemoTopicCards(): List<TopicCardEntity> {
             sourceDomain = null,
             shareType = "text",
             imageUri = null,
+            sourceType = "unknown",
             userNote = "判断这个观点能不能做成一期创作者效率类视频。",
             category = "待判断",
             status = "later",
@@ -1111,6 +1119,9 @@ private fun QuickCaptureScreen(
                 localImagePath = preparedContent.localImagePath,
                 croppedImagePath = quickCroppedImagePath,
                 coverAspectRatio = selectedCoverAspectRatio,
+                sourceTitle = initialSourceTitle(preparedContent, trimmedNote),
+                sourceDescription = preparedContent.rawText?.takeIf { it.isNotBlank() }?.take(SOURCE_PREVIEW_LENGTH),
+                sourceType = inferInitialSourceType(preparedContent),
                 previewStatus = if (!preparedContent.sourceUrl.isNullOrBlank()) {
                     "loading"
                 } else {
@@ -1124,6 +1135,11 @@ private fun QuickCaptureScreen(
                 aiReason = taskSuggestion?.reason,
                 aiConfidence = taskSuggestion?.confidence,
                 nextAction = taskSuggestion?.nextAction,
+                aiSuggestedCategory = taskSuggestion?.contentType,
+                aiSuggestedTags = taskSuggestion?.tags?.joinToString(","),
+                aiSuggestedNextAction = taskSuggestion?.nextAction,
+                aiSuggestedReason = taskSuggestion?.reason,
+                aiClassificationStatus = if (taskSuggestion != null) "applied" else "not_started",
                 status = DEFAULT_STATUS,
                 createdAt = now,
                 updatedAt = now,
@@ -1573,9 +1589,14 @@ private fun InboxScreen(
     val creationTasks by creationTaskDao.observeAll().collectAsState(initial = emptyList())
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val aiRepository = remember { AiRepository() }
     var selectedCategoryFilter by rememberSaveable { mutableStateOf(ALL_CATEGORIES) }
     var selectedStatusFilter by rememberSaveable { mutableStateOf(ALL_CATEGORIES) }
     var cardPendingDelete by remember { mutableStateOf<TopicCardEntity?>(null) }
+    var batchSuggestions by remember { mutableStateOf<List<AiClassificationSuggestion>>(emptyList()) }
+    var manualSuggestionCategories by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var isBatchClassifying by rememberSaveable { mutableStateOf(false) }
+    var batchMessage by rememberSaveable { mutableStateOf<String?>(null) }
     val categoryFilters = remember { listOf(ALL_CATEGORIES) + Categories }
     val statusFilters = remember { listOf(StatusOption(label = ALL_CATEGORIES, value = ALL_CATEGORIES)) + StatusOptions }
     val plannedCount = topicCards.count { it.status == "planned" }
@@ -1586,6 +1607,84 @@ private fun InboxScreen(
         val statusMatches = selectedStatusFilter == ALL_CATEGORIES ||
             topicCard.status == selectedStatusFilter
         categoryMatches && statusMatches
+    }
+
+    fun applyClassificationSuggestion(
+        suggestion: AiClassificationSuggestion,
+        categoryOverride: String? = null,
+    ) {
+        val card = topicCards.firstOrNull { it.id == suggestion.cardId } ?: return
+        val targetCategory = categoryOverride ?: suggestion.suggestedCategory
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                topicCardDao.update(
+                    card.copy(
+                        category = targetCategory,
+                        aiTags = suggestion.suggestedTags.joinToString(","),
+                        aiReusableStructure = suggestion.reusableStructure,
+                        aiReferenceValue = suggestion.referenceValue,
+                        nextAction = suggestion.suggestedNextAction,
+                        aiReason = suggestion.reason,
+                        aiConfidence = suggestion.confidence,
+                        aiSuggestedCategory = suggestion.suggestedCategory,
+                        aiSuggestedTags = suggestion.suggestedTags.joinToString(","),
+                        aiSuggestedNextAction = suggestion.suggestedNextAction,
+                        aiSuggestedReason = suggestion.reason,
+                        aiClassificationStatus = "applied",
+                        updatedAt = System.currentTimeMillis(),
+                    ),
+                )
+            }
+            // TODO metrics: ai_classification_applied.
+            batchSuggestions = batchSuggestions.filterNot { it.cardId == suggestion.cardId }
+            manualSuggestionCategories = manualSuggestionCategories - suggestion.cardId
+            Toast.makeText(context, "已应用 AI 分类建议", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun runBatchClassification() {
+        val targets = topicCards.filter { card ->
+            card.category == "待判断" ||
+                card.aiClassificationStatus == "not_started" ||
+                card.aiClassificationStatus == "failed"
+        }.filterNot { card -> card.aiClassificationStatus == "applied" }
+
+        if (targets.isEmpty()) {
+            batchMessage = "没有需要分类的卡片。已应用过的分类不会被默认覆盖。"
+            return
+        }
+
+        isBatchClassifying = true
+        batchMessage = null
+        // TODO metrics: ai_batch_classify_clicked.
+        scope.launch {
+            val suggestions = targets.mapNotNull { card ->
+                aiRepository.classifyCardForCreativeUse(card).getOrNull()
+            }
+            batchSuggestions = suggestions
+            manualSuggestionCategories = emptyMap()
+            batchMessage = if (suggestions.isEmpty()) {
+                "AI mock 暂未生成建议，请稍后重试。"
+            } else {
+                "已生成 ${suggestions.size} 条分类建议，请确认后再应用。"
+            }
+            isBatchClassifying = false
+        }
+    }
+
+    fun applyHighConfidenceSuggestions() {
+        val highConfidenceSuggestions = batchSuggestions.filter { it.confidence >= 0.75f }
+        if (highConfidenceSuggestions.isEmpty()) {
+            batchMessage = "暂无置信度 75% 以上的建议。"
+            return
+        }
+        // TODO metrics: batch_high_confidence_applied.
+        highConfidenceSuggestions.forEach { suggestion ->
+            applyClassificationSuggestion(
+                suggestion = suggestion,
+                categoryOverride = manualSuggestionCategories[suggestion.cardId],
+            )
+        }
     }
 
     Scaffold(
@@ -1625,6 +1724,33 @@ private fun InboxScreen(
                 selectedStatus = selectedStatusFilter,
                 onStatusSelected = { selectedStatusFilter = it },
             )
+            AiBatchClassifyEntry(
+                isLoading = isBatchClassifying,
+                message = batchMessage,
+                suggestionCount = batchSuggestions.size,
+                onClick = ::runBatchClassification,
+            )
+            if (batchSuggestions.isNotEmpty()) {
+                AiBatchClassifyPanel(
+                    suggestions = batchSuggestions,
+                    manualCategories = manualSuggestionCategories,
+                    onCategorySelected = { cardId, category ->
+                        manualSuggestionCategories = manualSuggestionCategories + (cardId to category)
+                    },
+                    onApplyClick = { suggestion ->
+                        applyClassificationSuggestion(
+                            suggestion = suggestion,
+                            categoryOverride = manualSuggestionCategories[suggestion.cardId],
+                        )
+                    },
+                    onSkipClick = { suggestion ->
+                        // TODO metrics: ai_classification_skipped.
+                        batchSuggestions = batchSuggestions.filterNot { it.cardId == suggestion.cardId }
+                        manualSuggestionCategories = manualSuggestionCategories - suggestion.cardId
+                    },
+                    onApplyHighConfidenceClick = ::applyHighConfidenceSuggestions,
+                )
+            }
 
             if (topicCards.isEmpty()) {
                 EmptyInbox(onManualCaptureClick = onManualCaptureClick)
@@ -1790,6 +1916,213 @@ private fun FilterSection(
     }
 }
 
+@Composable
+private fun AiBatchClassifyEntry(
+    isLoading: Boolean,
+    message: String?,
+    suggestionCount: Int,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 14.dp),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = AppColors.HoneyCream.copy(alpha = 0.5f),
+        ),
+        border = CardDefaults.outlinedCardBorder().copy(
+            width = 1.dp,
+            brush = androidx.compose.ui.graphics.SolidColor(SoftOutline),
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = "AI 分类收藏夹",
+                fontSize = CardTitleSize,
+                fontWeight = FontWeight.Bold,
+                color = DeepNavy,
+            )
+            Text(
+                text = "根据链接标题、简介、来源平台和你的备注，批量推荐创作用途分类。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = SecondaryText,
+            )
+            if (!message.isNullOrBlank()) {
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SecondaryText,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = onClick,
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.HoneyCream,
+                        contentColor = DeepNavy,
+                    ),
+                ) {
+                    Text(text = if (isLoading) "分类中..." else "AI 分类收藏夹")
+                }
+                if (suggestionCount > 0) {
+                    SourcePlatformChip(text = "待确认 $suggestionCount 条")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiBatchClassifyPanel(
+    suggestions: List<AiClassificationSuggestion>,
+    manualCategories: Map<String, String>,
+    onCategorySelected: (String, String) -> Unit,
+    onApplyClick: (AiClassificationSuggestion) -> Unit,
+    onSkipClick: (AiClassificationSuggestion) -> Unit,
+    onApplyHighConfidenceClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 14.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = CardCream),
+        border = CardDefaults.outlinedCardBorder().copy(
+            width = 1.dp,
+            brush = androidx.compose.ui.graphics.SolidColor(SoftOutline),
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "AI 分类建议",
+                    fontSize = CardTitleSize,
+                    fontWeight = FontWeight.Bold,
+                    color = DeepNavy,
+                )
+                TextButton(onClick = onApplyHighConfidenceClick) {
+                    Text(text = "批量应用高置信度")
+                }
+            }
+            suggestions.forEach { suggestion ->
+                AiClassificationSuggestionItem(
+                    suggestion = suggestion,
+                    selectedCategory = manualCategories[suggestion.cardId] ?: suggestion.suggestedCategory,
+                    onCategorySelected = { category -> onCategorySelected(suggestion.cardId, category) },
+                    onApplyClick = { onApplyClick(suggestion) },
+                    onSkipClick = { onSkipClick(suggestion) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiClassificationSuggestionItem(
+    suggestion: AiClassificationSuggestion,
+    selectedCategory: String,
+    onCategorySelected: (String) -> Unit,
+    onApplyClick: () -> Unit,
+    onSkipClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(CreamBackground)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = suggestion.sourceTitle,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = DeepNavy,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            SourcePlatformChip(text = suggestion.sourcePlatform)
+            SourcePlatformChip(text = "当前：${suggestion.currentCategory}")
+            CategoryChip(text = "推荐：${suggestion.suggestedCategory}", selected = false, onClick = {})
+            SourcePlatformChip(text = "置信度 ${(suggestion.confidence * 100).toInt()}%")
+        }
+        Text(
+            text = "AI 标签：${suggestion.suggestedTags.joinToString("、")}",
+            style = MaterialTheme.typography.bodySmall,
+            color = SecondaryText,
+        )
+        Text(
+            text = "下一步：${suggestion.suggestedNextAction}",
+            style = MaterialTheme.typography.bodySmall,
+            color = DeepNavy,
+        )
+        Text(
+            text = "理由：${suggestion.reason}",
+            style = MaterialTheme.typography.bodySmall,
+            color = SecondaryText,
+        )
+        Text(
+            text = "修改分类",
+            style = MaterialTheme.typography.labelMedium,
+            color = TertiaryText,
+        )
+        CategorySelector(
+            categories = Categories,
+            selectedCategory = selectedCategory,
+            onCategorySelected = onCategorySelected,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Button(
+                onClick = onApplyClick,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AppColors.HoneyCream,
+                    contentColor = DeepNavy,
+                ),
+            ) {
+                Text(text = "应用建议")
+            }
+            OutlinedButton(
+                onClick = onSkipClick,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = SecondaryText,
+                ),
+            ) {
+                Text(text = "跳过")
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilterChipRow(
@@ -1890,6 +2223,7 @@ private fun TopicCardItem(
     onDeleteClick: () -> Unit,
 ) {
     val context = LocalContext.current
+    val displayTitle = topicCard.displaySourceTitle()
     val noteSummary = topicCard.userNote.take(60)
     val sourceLabel = topicCard.sourceDomain
         ?: topicCard.sourceUrl?.let(::extractDomain)
@@ -1924,7 +2258,7 @@ private fun TopicCardItem(
                     .height(132.dp),
             )
             Text(
-                text = topicCard.title,
+                text = displayTitle,
                 fontSize = CardTitleSize,
                 fontWeight = FontWeight.Bold,
                 color = DeepNavy,
@@ -1938,6 +2272,9 @@ private fun TopicCardItem(
             ) {
                 CategoryChip(text = topicCard.category, selected = false, onClick = {})
                 SourcePlatformChip(text = topicCard.sourcePlatform)
+                topicCard.sourceType?.takeIf { it.isNotBlank() }?.let { sourceType ->
+                    SourcePlatformChip(text = sourceTypeLabel(sourceType))
+                }
                 SourcePlatformChip(text = shareTypeLabel(topicCard.shareType))
                 StatusChip(text = statusLabel(topicCard.status), selected = false, onClick = {})
             }
@@ -2205,7 +2542,8 @@ private fun LinkPreviewCard(
         ?: topicCard.sourceUrl?.let(::extractDomain)
         ?: topicCard.sourceUrl
         ?: "未知域名"
-    val title = topicCard.previewTitle ?: sourceDomain
+    val title = topicCard.displaySourceTitle().ifBlank { sourceDomain }
+    val description = topicCard.sourceDescription ?: topicCard.previewDescription
     val coverImageModel = topicCard.coverImageModel()
     val coverBadge = when {
         !topicCard.croppedImagePath.isNullOrBlank() -> "已裁剪封面"
@@ -2247,7 +2585,7 @@ private fun LinkPreviewCard(
                 LinkPreviewTextContent(
                     sourceLine = "${topicCard.sourcePlatform} · $sourceDomain",
                     title = title,
-                    description = topicCard.previewDescription,
+                    description = description,
                     status = topicCard.previewStatus,
                     sourceUrl = topicCard.sourceUrl,
                     modifier = Modifier.weight(1f),
@@ -2280,7 +2618,7 @@ private fun LinkPreviewCard(
                 LinkPreviewTextContent(
                     sourceLine = "${topicCard.sourcePlatform} · $sourceDomain",
                     title = title.ifBlank { sourceDomain },
-                    description = topicCard.previewDescription,
+                    description = description,
                     status = topicCard.previewStatus,
                     sourceUrl = topicCard.sourceUrl,
                 )
@@ -3724,8 +4062,8 @@ private fun TopicDetailScreen(
                     userNote = trimmedNote,
                     imageSummary = if (displayCard.coverImageModel() != null) "这张卡片有封面图片" else null,
                     currentCategory = selectedCategory,
-                    previewTitle = card.previewTitle,
-                    previewDescription = card.previewDescription,
+                    previewTitle = card.sourceTitle ?: card.previewTitle,
+                    previewDescription = card.sourceDescription ?: card.previewDescription,
                     taskMode = AiTaskMode.CLASSIFY_CONTENT,
                 ),
             )
@@ -4088,6 +4426,11 @@ private fun TopicDetailScreen(
                             aiReason = appliedAiSuggestion?.reason ?: card.aiReason,
                             aiConfidence = appliedAiSuggestion?.confidence ?: card.aiConfidence,
                             nextAction = appliedAiSuggestion?.nextAction ?: card.nextAction,
+                            aiSuggestedCategory = appliedAiSuggestion?.contentType ?: card.aiSuggestedCategory,
+                            aiSuggestedTags = appliedAiSuggestion?.tags?.joinToString(",") ?: card.aiSuggestedTags,
+                            aiSuggestedNextAction = appliedAiSuggestion?.nextAction ?: card.aiSuggestedNextAction,
+                            aiSuggestedReason = appliedAiSuggestion?.reason ?: card.aiSuggestedReason,
+                            aiClassificationStatus = if (appliedAiSuggestion != null) "applied" else card.aiClassificationStatus,
                             shareType = when {
                                 !card.sourceUrl.isNullOrBlank() && (!detailImageUri.isNullOrBlank() || !detailLocalImagePath.isNullOrBlank()) -> "mixed"
                                 !detailImageUri.isNullOrBlank() || !detailLocalImagePath.isNullOrBlank() -> "image"
@@ -4531,14 +4874,25 @@ private suspend fun fetchAndStoreLinkPreview(
 ) {
     val sourceUrl = topicCard.sourceUrl ?: return
     val result = LinkPreviewFetcher.fetch(sourceUrl)
+    val fallbackTitle = result.sourceTitle
+        ?: result.previewTitle
+        ?: topicCard.displaySourceTitle()
+    val fallbackDescription = result.sourceDescription
+        ?: result.previewDescription
+        ?: topicCard.sourceDescription
     withContext(Dispatchers.IO) {
         topicCardDao.updateLinkPreview(
             cardId = topicCard.id,
-            previewTitle = result.previewTitle,
-            previewDescription = result.previewDescription,
+            previewTitle = result.previewTitle ?: fallbackTitle,
+            previewDescription = result.previewDescription ?: fallbackDescription,
             previewImageUrl = result.previewImageUrl,
             previewFetchedAt = result.previewFetchedAt,
             previewStatus = result.previewStatus,
+            sourceTitle = fallbackTitle,
+            sourceDescription = fallbackDescription,
+            sourceAuthor = result.sourceAuthor ?: topicCard.sourceAuthor,
+            sourceType = result.sourceType ?: topicCard.sourceType ?: inferSourceTypeFromUrl(sourceUrl),
+            resolvedUrl = result.resolvedUrl ?: topicCard.resolvedUrl,
             updatedAt = System.currentTimeMillis(),
         )
     }
@@ -4605,6 +4959,54 @@ private fun Calendar.isSameDay(other: Calendar): Boolean {
         get(Calendar.DAY_OF_YEAR) == other.get(Calendar.DAY_OF_YEAR)
 }
 
+private fun initialSourceTitle(
+    shareContent: ShareContent,
+    userNote: String,
+): String {
+    return shareContent.rawText
+        ?.lineSequence()
+        ?.map { it.trim() }
+        ?.firstOrNull { it.isNotBlank() && !it.startsWith("http", ignoreCase = true) }
+        ?.take(80)
+        ?: userNote.takeIf { it.isNotBlank() }?.take(80)
+        ?: shareContent.sourceDomain
+        ?: shareContent.sourceUrl?.let(::extractDomain)
+        ?: "未命名收藏"
+}
+
+private fun inferInitialSourceType(shareContent: ShareContent): String {
+    return when {
+        !shareContent.imageUri.isNullOrBlank() && shareContent.sourceUrl.isNullOrBlank() -> "image"
+        !shareContent.sourceUrl.isNullOrBlank() -> inferSourceTypeFromUrl(shareContent.sourceUrl)
+        else -> "unknown"
+    }
+}
+
+private fun inferSourceTypeFromUrl(sourceUrl: String?): String {
+    val domain = sourceUrl?.let(::extractDomain).orEmpty().lowercase()
+    return when {
+        domain.contains("bilibili.com") ||
+            domain.contains("b23.tv") ||
+            domain.contains("youtube.com") ||
+            domain.contains("youtu.be") ||
+            domain.contains("douyin.com") -> "video"
+        domain.contains("mp.weixin.qq.com") ||
+            domain.contains("zhihu.com") ||
+            domain.contains("medium.com") -> "article"
+        else -> "unknown"
+    }
+}
+
+private fun TopicCardEntity.displaySourceTitle(): String {
+    return sourceTitle?.takeIf { it.isNotBlank() }
+        ?: previewTitle?.takeIf { it.isNotBlank() }
+        ?: title.takeIf { it.isNotBlank() }
+        ?: userNote.takeIf { it.isNotBlank() }?.take(80)
+        ?: sourceDomain
+        ?: sourceUrl?.let(::extractDomain)
+        ?: "未命名收藏"
+}
+
 private fun extractDomain(sourceUrl: String): String {
     val host = runCatching { URI(sourceUrl).host }.getOrNull()
     return host
@@ -4624,6 +5026,16 @@ private fun shareTypeLabel(shareType: String): String {
         "mixed" -> "链接+图片"
         "text" -> "文字"
         else -> "内容"
+    }
+}
+
+private fun sourceTypeLabel(sourceType: String): String {
+    return when (sourceType) {
+        "video" -> "视频"
+        "article" -> "图文/文章"
+        "image" -> "图片"
+        "note" -> "笔记"
+        else -> "未知类型"
     }
 }
 

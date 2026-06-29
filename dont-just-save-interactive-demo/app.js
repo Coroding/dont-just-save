@@ -18,11 +18,15 @@ const defaultState = {
   statusFilter: "全部",
   reviewIndex: 0,
   openMenuId: null,
+  batchSuggestions: [],
   capture: {
     sourceUrl: "",
     sourcePlatform: "手动记录",
     sourceDomain: "",
     sourcePreview: "手动记录",
+    sourceTitle: "",
+    sourceDescription: "",
+    sourceType: "unknown",
     userNote: "",
     contentType: "选题灵感",
     coverType: "gradient",
@@ -34,9 +38,14 @@ const defaultState = {
     {
       id: "seed-reaction",
       title: "reaction 视频",
+      sourceTitle: "一个创作者拆解爆款 reaction 视频结构",
+      sourceDescription: "用开场钩子、片段反应和观点总结组成可拆解的视频案例。",
       sourcePlatform: "哔哩哔哩",
       sourceDomain: "b23.tv",
       sourceUrl: "https://b23.tv/demo",
+      resolvedUrl: "https://www.bilibili.com/video/demo",
+      sourceAuthor: "示例 UP 主",
+      sourceType: "video",
       contentType: "素材案例",
       tags: ["reaction", "案例", "视频结构"],
       userNote: "可以做一期 reaction 视频拆解",
@@ -45,6 +54,7 @@ const defaultState = {
       nextAction: "先拆解这个视频的开头结构",
       reason: "包含可拆解的视频案例",
       confidence: 0.88,
+      aiClassificationStatus: "not_started",
       status: "inbox",
       coverType: "link",
       coverGradient: "material",
@@ -172,6 +182,16 @@ function statusLabel(value) {
   }[value] || value;
 }
 
+function sourceTypeLabel(value) {
+  return {
+    video: "视频",
+    article: "图文/文章",
+    image: "图片",
+    note: "笔记",
+    unknown: "未知类型",
+  }[value] || "未知类型";
+}
+
 function formatDate(timestamp) {
   const date = new Date(timestamp);
   return `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -182,12 +202,19 @@ function cardTitleFromNote(note) {
   return clean ? clean.slice(0, 18) : "新的视频灵感";
 }
 
+function displaySourceTitle(card) {
+  return card.sourceTitle || card.title || card.userNote || card.sourceDomain || "未命名收藏";
+}
+
 function createMockAiResult(source = state.capture) {
   const signal = [
     source.userNote,
+    source.sourceTitle,
+    source.sourceDescription,
     source.sourcePreview,
     source.sourcePlatform,
     source.sourceDomain,
+    source.sourceType,
     source.contentType,
   ].filter(Boolean).join(" ").toLowerCase();
   const materialList = [
@@ -288,6 +315,114 @@ function createMockAiResult(source = state.capture) {
   };
 }
 
+function classifyCardForCreativeUse(card) {
+  const sourceTitle = displaySourceTitle(card);
+  const signal = [
+    card.userNote,
+    card.sourceTitle,
+    card.sourceDescription,
+    card.sourceAuthor,
+    card.sourcePlatform,
+    card.sourceDomain,
+    card.sourceType,
+    card.sourceUrl,
+    card.resolvedUrl,
+    card.title,
+  ].filter(Boolean).join(" ").toLowerCase();
+  let suggestion;
+
+  if (hasAny(signal, ["reaction", "反应", "评论", "歌手", "视频", "综艺", "看完"])) {
+    suggestion = {
+      suggestedCategory: "素材案例",
+      suggestedTags: ["reaction", "视频结构", "案例拆解"],
+      suggestedNextAction: "先拆出这个视频的前 30 秒结构",
+      reusableStructure: "开场钩子 → 片段反应 → 观点总结",
+      referenceValue: "可拆解视频结构",
+      reason: "包含可拆解的视频案例",
+      confidence: 0.88,
+    };
+  } else if (hasAny(signal, ["标题", "爆款", "热点", "选题", "话题", "流量"])) {
+    suggestion = {
+      suggestedCategory: signal.includes("选题") ? "选题灵感" : "标题参考",
+      suggestedTags: ["标题结构", "选题角度", "爆款案例"],
+      suggestedNextAction: "先改写 3 个适合自己账号的标题",
+      reusableStructure: "强问题 + 明确对象 + 结果反差",
+      referenceValue: "可转成标题结构",
+      reason: "更适合作为选题或标题结构参考",
+      confidence: 0.84,
+    };
+  } else if (hasAny(signal, ["封面", "截图", "配色", "字体", "排版", "视觉", "海报"])) {
+    suggestion = {
+      suggestedCategory: "封面参考",
+      suggestedTags: ["封面结构", "视觉参考", "点击率"],
+      suggestedNextAction: "先标注这个封面的可复用布局",
+      reusableStructure: "主体图 + 大字标题 + 背景层次",
+      referenceValue: "可复用视觉布局",
+      reason: "明确包含视觉表达参考",
+      confidence: 0.82,
+    };
+  } else if (hasAny(signal, ["教程", "步骤", "方法", "怎么做", "指南", "流程"])) {
+    suggestion = {
+      suggestedCategory: "脚本结构",
+      suggestedTags: ["教程结构", "步骤拆解", "方法论"],
+      suggestedNextAction: "先列出可复用的 4 个步骤",
+      reusableStructure: "问题引入 → 步骤演示 → 总结",
+      referenceValue: "可复用教程脚本",
+      reason: "适合复用为教程脚本结构",
+      confidence: 0.86,
+    };
+  } else if (card.sourceType === "video" && sourceTitle) {
+    suggestion = {
+      suggestedCategory: "素材案例",
+      suggestedTags: ["视频案例", "内容拆解", "参考素材"],
+      suggestedNextAction: "先判断它适合参考选题、结构还是表达方式",
+      reusableStructure: "视频案例 → 可参考点 → 自用改写",
+      referenceValue: "可作为视频案例输入",
+      reason: "视频内容适合作为创作案例输入",
+      confidence: 0.78,
+    };
+  } else if (card.sourceType === "article") {
+    suggestion = {
+      suggestedCategory: "选题灵感",
+      suggestedTags: ["观点素材", "文章参考", "选题输入"],
+      suggestedNextAction: "先提取文章中可支撑一个视频观点的段落",
+      reusableStructure: "观点 → 论据 → 视频角度",
+      referenceValue: "可提取观点素材",
+      reason: "图文/文章适合作为观点或素材输入",
+      confidence: 0.76,
+    };
+  } else if (card.sourceType === "image") {
+    suggestion = {
+      suggestedCategory: "封面参考",
+      suggestedTags: ["图片素材", "视觉参考", "封面参考"],
+      suggestedNextAction: "先标注这张图可复用的视觉元素",
+      reusableStructure: "视觉元素 → 封面布局 → 自用草图",
+      referenceValue: "可参考视觉元素",
+      reason: "图片更适合作为视觉或素材参考",
+      confidence: 0.77,
+    };
+  } else {
+    suggestion = {
+      suggestedCategory: "待判断",
+      suggestedTags: ["待整理", "创作灵感"],
+      suggestedNextAction: "先补一句这个内容启发你做什么视频",
+      reusableStructure: "补充意图后再判断",
+      referenceValue: "需要补充收藏理由",
+      reason: "当前信息不足，需要用户补充意图",
+      confidence: 0.58,
+    };
+  }
+
+  return {
+    cardId: card.id,
+    sourceTitle,
+    sourcePlatform: card.sourcePlatform,
+    currentCategory: card.contentType,
+    selectedCategory: suggestion.suggestedCategory,
+    ...suggestion,
+  };
+}
+
 function hasAny(text, keywords) {
   return keywords.some((keyword) => text.includes(keyword));
 }
@@ -297,9 +432,14 @@ function createCardFromCapture(markTaskCreated = false) {
   const card = {
     id: id("card"),
     title: cardTitleFromNote(state.capture.userNote),
+    sourceTitle: state.capture.sourceTitle || state.capture.sourcePreview || cardTitleFromNote(state.capture.userNote),
+    sourceDescription: state.capture.sourceDescription || state.capture.sourcePreview,
     sourcePlatform: state.capture.sourcePlatform,
     sourceDomain: state.capture.sourceDomain,
     sourceUrl: state.capture.sourceUrl,
+    resolvedUrl: state.capture.sourceUrl,
+    sourceAuthor: "",
+    sourceType: state.capture.sourceType || (state.capture.coverType === "image" ? "image" : "unknown"),
     contentType: ai?.contentType || state.capture.contentType,
     tags: ai?.tags || [],
     userNote: state.capture.userNote.trim() || "可以做一期内容拆解视频",
@@ -309,6 +449,7 @@ function createCardFromCapture(markTaskCreated = false) {
     reason: ai?.reason || "尚未应用 AI 建议",
     confidence: ai?.confidence || 0,
     aiApplied: Boolean(ai),
+    aiClassificationStatus: ai ? "applied" : "not_started",
     taskDraft: ai?.taskDraft || null,
     status: markTaskCreated ? "planned" : "inbox",
     coverType: state.capture.coverType,
@@ -332,7 +473,7 @@ function createTaskFromCard(card) {
     outline: card.taskDraft?.outline || ["开场痛点", "参考案例", "我的观点或演示", "结论与行动建议"],
     materialList: card.taskDraft?.materialList || [
       card.sourceUrl ? `来源链接：${card.sourceUrl}` : "补充来源链接或截图",
-      `参考灵感：${card.title}`,
+      `参考灵感：${displaySourceTitle(card)}`,
     ],
     nextAction: card.taskDraft?.nextAction || card.nextAction || "先补充脚本大纲",
     sourceCardIds: [card.id],
@@ -452,10 +593,56 @@ function renderInbox() {
       ${filterChips(["全部", ...categories], state.categoryFilter, "set-category-filter")}
       <p class="caption">状态</p>
       ${filterChips(statuses.map((item) => item.label), labelForFilter(state.statusFilter), "set-status-filter")}
+      <div class="card ai-card batch-entry">
+        <h3>AI 分类收藏夹</h3>
+        <p>根据链接标题、简介、来源平台和你的备注，批量推荐创作用途分类。</p>
+        <button class="primary-button" data-action="batch-classify">AI 分类收藏夹</button>
+      </div>
+      ${state.batchSuggestions.length ? renderBatchClassifyPanel() : ""}
       <div class="asset-list">
         ${cards.length ? cards.map(renderAssetCard).join("") : `<div class="empty-state"><h3>当前筛选下没有卡片</h3><p>换个类型或先记录一个灵感。</p></div>`}
       </div>
     </section>
+  `;
+}
+
+function renderBatchClassifyPanel() {
+  return `
+    <div class="batch-panel">
+      <div class="batch-panel-head">
+        <div>
+          <h3>AI 分类建议</h3>
+          <p>AI 只给建议，应用后才会更新卡片分类和标签。</p>
+        </div>
+        <button class="secondary-button" data-action="apply-high-confidence">批量应用高置信度建议</button>
+      </div>
+      <div class="suggestion-list">
+        ${state.batchSuggestions.map(renderBatchSuggestion).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderBatchSuggestion(suggestion) {
+  return `
+    <article class="suggestion-card">
+      <h4>${escapeHtml(suggestion.sourceTitle)}</h4>
+      <div class="chip-row">
+        <span class="chip">${escapeHtml(suggestion.sourcePlatform)}</span>
+        <span class="chip">当前：${escapeHtml(suggestion.currentCategory)}</span>
+        <span class="chip active">推荐：${escapeHtml(suggestion.suggestedCategory)}</span>
+        <span class="chip">置信度 ${Math.round(suggestion.confidence * 100)}%</span>
+      </div>
+      <p><strong>标签</strong>：${suggestion.suggestedTags.map(escapeHtml).join("、")}</p>
+      <p><strong>下一步行动</strong>：${escapeHtml(suggestion.suggestedNextAction)}</p>
+      <p><strong>理由</strong>：${escapeHtml(suggestion.reason)}</p>
+      <p class="caption">修改分类</p>
+      ${categoryChips(suggestion.selectedCategory || suggestion.suggestedCategory, "set-suggestion-category").replaceAll("data-value=", `data-id="${suggestion.cardId}" data-value=`)}
+      <div class="inline-actions">
+        <button class="primary-button" data-action="apply-classification" data-id="${suggestion.cardId}">应用建议</button>
+        <button class="secondary-button" data-action="skip-classification" data-id="${suggestion.cardId}">跳过</button>
+      </div>
+    </article>
   `;
 }
 
@@ -470,7 +657,7 @@ function renderDetail() {
         <span class="chip ${chipClass(card.contentType)}">${card.contentType}</span>
         <span class="chip">${card.sourcePlatform}</span>
       </div>
-      <h2 class="page-title" style="margin-top:16px">${escapeHtml(card.title)}</h2>
+      <h2 class="page-title" style="margin-top:16px">${escapeHtml(displaySourceTitle(card))}</h2>
       <div class="card source-card">
         <p><strong>用户备注</strong></p>
         <p>${escapeHtml(card.userNote)}</p>
@@ -480,7 +667,7 @@ function renderDetail() {
         <p><strong>下一步行动</strong>：${escapeHtml(card.nextAction)}</p>
         <p><strong>判断理由</strong>：${escapeHtml(card.reason || "尚未生成")}</p>
         <p><strong>关联任务状态</strong>：${card.taskCreated ? "已转为创作任务" : "尚未生成任务草稿"}</p>
-        <p class="caption">来源链接：${escapeHtml(card.sourceUrl || "暂无链接")}</p>
+        <p class="caption">来源链接：${escapeHtml(card.resolvedUrl || card.sourceUrl || "暂无链接")}</p>
       </div>
       <button class="primary-button" data-action="task-from-detail" data-id="${card.id}">生成创作任务</button>
       <button class="secondary-button" data-action="open-source">打开来源</button>
@@ -618,10 +805,13 @@ function aiResult(ai, applied) {
 function reviewAiRecommendation(card) {
   const ai = createMockAiResult({
     userNote: card.userNote,
-    sourcePreview: card.title,
+    sourceTitle: card.sourceTitle,
+    sourceDescription: card.sourceDescription,
+    sourcePreview: displaySourceTitle(card),
     sourcePlatform: card.sourcePlatform,
     sourceDomain: card.sourceDomain,
     sourceUrl: card.sourceUrl,
+    sourceType: card.sourceType,
     contentType: card.contentType,
   });
   return `
@@ -635,16 +825,18 @@ function reviewAiRecommendation(card) {
 }
 
 function renderAssetCard(card, options = {}) {
+  const title = displaySourceTitle(card);
   return `
     <article class="asset-card" data-card-id="${card.id}">
       ${cover(card.coverType, card.contentType, "small")}
-      <h3 data-action="open-card" data-id="${card.id}">${escapeHtml(card.title)}</h3>
+      <h3 data-action="open-card" data-id="${card.id}">${escapeHtml(title)}</h3>
       <div class="chip-row">
         <span class="chip ${chipClass(card.contentType)}">${card.contentType}</span>
         <span class="chip">${card.sourcePlatform}</span>
+        ${card.sourceType ? `<span class="chip">${escapeHtml(sourceTypeLabel(card.sourceType))}</span>` : ""}
         ${card.tags.slice(0, 2).map((tag) => `<span class="chip">AI ${escapeHtml(tag)}</span>`).join("")}
       </div>
-      <p>${escapeHtml(card.userNote)}</p>
+      <p>${escapeHtml(card.sourceDescription || card.userNote)}</p>
       <p><strong>下一步</strong>：${escapeHtml(card.nextAction)}</p>
       <div class="card-footer">
         <span>${escapeHtml(card.sourceDomain || card.sourcePlatform)} · ${formatDate(card.createdAt)}</span>
@@ -767,6 +959,11 @@ function handleAction(event) {
       state.statusFilter = valueForStatusLabel(value);
       saveAndRender();
     },
+    "batch-classify": runBatchClassify,
+    "set-suggestion-category": () => setSuggestionCategory(itemId, value),
+    "apply-classification": () => applyClassification(itemId),
+    "skip-classification": () => skipClassification(itemId),
+    "apply-high-confidence": applyHighConfidence,
     "open-card": () => setScreen("detail", { selectedCardId: itemId }),
     "task-from-card": () => taskFromCard(itemId),
     "task-from-detail": () => taskFromCard(itemId),
@@ -793,6 +990,9 @@ function pasteLink() {
   state.capture.sourcePlatform = "哔哩哔哩";
   state.capture.sourceDomain = "b23.tv";
   state.capture.sourcePreview = "模拟 B 站视频链接：一个创作者拆解爆款 reaction 视频结构。";
+  state.capture.sourceTitle = "一个创作者拆解爆款 reaction 视频结构";
+  state.capture.sourceDescription = "示例短链会被解析成视频标题、简介和来源平台，再交给 AI 分类。";
+  state.capture.sourceType = "video";
   state.capture.coverType = "link";
   state.capture.coverGradient = "material";
   showToast("已粘贴模拟 B 站链接");
@@ -803,6 +1003,9 @@ function addImage() {
   state.capture.coverType = "image";
   state.capture.sourcePlatform = state.capture.sourceUrl ? state.capture.sourcePlatform : "截图来源";
   state.capture.sourcePreview = "已添加一张模拟截图，这张图片将作为卡片封面。";
+  state.capture.sourceTitle = state.capture.sourceTitle || "一张可作为封面参考的截图";
+  state.capture.sourceDescription = "图片收藏更适合作为视觉、封面或素材参考。";
+  state.capture.sourceType = state.capture.sourceUrl ? state.capture.sourceType : "image";
   showToast("已添加模拟截图封面");
   saveAndRender();
 }
@@ -820,6 +1023,75 @@ function applyAi() {
   state.capture.aiApplied = true;
   showToast("已应用 AI 建议");
   saveAndRender();
+}
+
+function runBatchClassify() {
+  const targets = state.cards.filter((card) =>
+    card.contentType === "待判断" ||
+    !card.aiClassificationStatus ||
+    card.aiClassificationStatus === "not_started" ||
+    card.aiClassificationStatus === "failed"
+  ).filter((card) => card.aiClassificationStatus !== "applied");
+
+  if (!targets.length) {
+    state.batchSuggestions = [];
+    showToast("没有需要分类的卡片");
+    saveAndRender();
+    return;
+  }
+
+  // TODO metrics: ai_batch_classify_clicked and ai_classification_suggested.
+  state.batchSuggestions = targets.map(classifyCardForCreativeUse);
+  showToast(`已生成 ${state.batchSuggestions.length} 条 AI 分类建议`);
+  saveAndRender();
+}
+
+function setSuggestionCategory(cardId, category) {
+  const suggestion = state.batchSuggestions.find((item) => item.cardId === cardId);
+  if (!suggestion) return;
+  suggestion.selectedCategory = category;
+  saveAndRender();
+}
+
+function applyClassification(cardId) {
+  const suggestion = state.batchSuggestions.find((item) => item.cardId === cardId);
+  const card = findCard(cardId);
+  if (!suggestion || !card) return;
+  Object.assign(card, {
+    contentType: suggestion.selectedCategory || suggestion.suggestedCategory,
+    tags: suggestion.suggestedTags,
+    reusableStructure: suggestion.reusableStructure,
+    referenceValue: suggestion.referenceValue,
+    nextAction: suggestion.suggestedNextAction,
+    reason: suggestion.reason,
+    confidence: suggestion.confidence,
+    aiSuggestedCategory: suggestion.suggestedCategory,
+    aiSuggestedTags: suggestion.suggestedTags,
+    aiSuggestedNextAction: suggestion.suggestedNextAction,
+    aiSuggestedReason: suggestion.reason,
+    aiClassificationStatus: "applied",
+  });
+  state.batchSuggestions = state.batchSuggestions.filter((item) => item.cardId !== cardId);
+  // TODO metrics: ai_classification_applied.
+  showToast("已应用 AI 分类建议");
+  saveAndRender();
+}
+
+function skipClassification(cardId) {
+  state.batchSuggestions = state.batchSuggestions.filter((item) => item.cardId !== cardId);
+  // TODO metrics: ai_classification_skipped.
+  showToast("已跳过这条建议");
+  saveAndRender();
+}
+
+function applyHighConfidence() {
+  const highConfidence = state.batchSuggestions.filter((suggestion) => suggestion.confidence >= 0.75);
+  if (!highConfidence.length) {
+    showToast("暂无高置信度建议");
+    return;
+  }
+  // TODO metrics: batch_high_confidence_applied.
+  highConfidence.forEach((suggestion) => applyClassification(suggestion.cardId));
 }
 
 function saveCard() {
@@ -873,10 +1145,13 @@ function reviewTask(cardId) {
   if (!card) return;
   const ai = createMockAiResult({
     userNote: card.userNote,
-    sourcePreview: card.title,
+    sourceTitle: card.sourceTitle,
+    sourceDescription: card.sourceDescription,
+    sourcePreview: displaySourceTitle(card),
     sourcePlatform: card.sourcePlatform,
     sourceDomain: card.sourceDomain,
     sourceUrl: card.sourceUrl,
+    sourceType: card.sourceType,
     contentType: card.contentType,
   });
   Object.assign(card, {

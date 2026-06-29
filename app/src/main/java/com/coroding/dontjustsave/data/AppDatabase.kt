@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [TopicCardEntity::class, CreationTaskEntity::class],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -25,8 +25,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "dont_just_save.db",
                 )
-                    // P0 Demo: allow rebuilding local-only data when the schema changes quickly.
-                    // Local MVP data can be recreated while AI suggestion fields evolve.
+                    // P0 Demo: allow rebuilding local-only data while Task18 link metadata
+                    // and AI batch-classification fields are still evolving.
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { instance = it }
