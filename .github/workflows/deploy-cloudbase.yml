@@ -1,0 +1,57 @@
+name: Deploy Dont Just Save to CloudBase
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "dont-just-save-interactive-demo/**"
+      - ".github/workflows/deploy-cloudbase.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy static demo
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_DIR: dont-just-save-interactive-demo
+      DEPLOY_PATH: /dont-just-save
+      TCB_ENV_ID: ${{ secrets.TCB_ENV_ID }}
+      TCB_SECRET_ID: ${{ secrets.TCB_SECRET_ID }}
+      TCB_SECRET_KEY: ${{ secrets.TCB_SECRET_KEY }}
+      TENCENTCLOUD_SECRETID: ${{ secrets.TCB_SECRET_ID }}
+      TENCENTCLOUD_SECRETKEY: ${{ secrets.TCB_SECRET_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate static demo files
+        run: |
+          test -f "$DEPLOY_DIR/index.html"
+          test -f "$DEPLOY_DIR/styles.css"
+          test -f "$DEPLOY_DIR/app.js"
+
+      - name: Check CloudBase secrets
+        shell: bash
+        run: |
+          test -n "$TCB_SECRET_ID"
+          test -n "$TCB_SECRET_KEY"
+          test -n "$TCB_ENV_ID"
+
+      - name: Deploy to CloudBase static hosting
+        run: >
+          npx --yes @cloudbase/cli@latest hosting:deploy
+          "$DEPLOY_DIR"
+          "$DEPLOY_PATH"
+          -e "$TCB_ENV_ID"
+          --secretId "$TCB_SECRET_ID"
+          --secretKey "$TCB_SECRET_KEY"
